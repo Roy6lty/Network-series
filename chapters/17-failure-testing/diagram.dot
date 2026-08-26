@@ -1,0 +1,16 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 17 | Final VPC-style lab and failure boundaries", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  public [label="public_a + public_b\n10.10.1.0/24\n10.10.2.0/24\nNginx .3", fillcolor="#eaf3ff"]
+  router [label="lab-router\ninter-subnet routes\nFORWARD default DROP", shape=hexagon, fillcolor="#fff7d6"]
+  apps [label="app_a + app_b\n10.10.11.0/24\n10.10.12.0/24\nprivate HTTP", fillcolor="#dff4e5"]
+  nat [label="nat-gateway\n.11.3 / .12.3 / .30.2\nMASQUERADE", shape=hexagon, fillcolor="#fff7d6"]
+  primary [label="db_a\npostgres-primary\n10.10.21.20\nread/write", fillcolor="#eaf3ff"]
+  replica [label="db_b\npostgres-replica\n10.10.22.20\nread-only standby", fillcolor="#eaf3ff"]
+  internet [label="Docker host / internet\nNAT egress", fillcolor="#f2f2f2"]
+  public -> router [label="allowed public paths", style=solid]; router -> apps [label="TCP 8000", style=solid]; apps -> router [label="TCP 5432", style=solid]; router -> primary [style=solid]; apps -> nat [label="default route", style=solid]; nat -> internet [label="source translated", style=solid]; replica -> router [label="replication TCP 5432", style=solid]; router -> primary [label="WAL stream", style=solid]
+  public -> primary [label="segmentation / DROP", style=dashed, color="#a33a3a"]; primary -> internet [label="private DB no direct egress", style=dashed, color="#a33a3a"]
+  legend -> public [style=invis]
+}

@@ -1,0 +1,14 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 01 | Container process lifecycle", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  host [label="Docker host\nLinux kernel", fillcolor="#f2f2f2"]
+  container [label="public-a-test\ncontainer namespace\n(no lab network yet)"]
+  pid1 [label="PID 1\nsleep infinity\nkeeps container alive", fillcolor="#dff4e5"]
+  exit [label="true\nprocess exits\ncontainer stops", style="rounded,dashed,filled", fillcolor="#ffe5e5", color="#a33a3a"]
+  host -> container [label="docker compose up", style=solid]
+  container -> pid1 [label="exec main process", style=dotted]
+  pid1 -> exit [label="replace command", style=dashed, color="#a33a3a"]
+  legend -> host [style=invis]
+}

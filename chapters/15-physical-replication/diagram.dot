@@ -1,0 +1,17 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 15 | Manual physical standby bootstrap", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  app [label="app_a / app_b\nclients\nwrite to primary"]
+  primary [label="postgres-primary\n10.10.21.20\nwrite + WAL source", fillcolor="#dff4e5"]
+  router [label="lab-router\ndb_a .21.2\ndb_b .22.2\nTCP :5432 allowed", shape=hexagon, fillcolor="#fff7d6"]
+  replica [label="postgres-replica\n10.10.22.20\nread-only standby", fillcolor="#eaf3ff"]
+  basebackup [label="pg_basebackup\nphysical cluster copy\n-R creates standby.signal", fillcolor="#f2f2f2"]
+  app -> primary [label="application TCP :5432", style=solid]
+  primary -> router [label="replication connection", style=solid]; router -> replica [label="db_b destination", style=solid]
+  replica -> router [label="WAL stream request", style=solid]; router -> primary [label="db_a destination", style=solid]
+  primary -> replica [label="WAL replay / read-only state", style=solid]
+  basebackup -> replica [label="initial population", style=dotted]
+  legend -> app [style=invis]
+}

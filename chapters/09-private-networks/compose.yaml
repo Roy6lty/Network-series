@@ -1,0 +1,9 @@
+networks:
+  app_a:
+    internal: true
+  app_b:
+    internal: true
+  db_a:
+    internal: true
+  db_b:
+    internal: true

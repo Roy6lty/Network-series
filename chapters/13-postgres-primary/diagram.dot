@@ -1,0 +1,15 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 13 | Routed application to PostgreSQL primary", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  app [label="app-a-test\n10.10.11.10\nclient TCP :5432"]
+  router [label="lab-router\napp_a .11.2\ndb_a .21.2\nFORWARD allow :5432", shape=hexagon, fillcolor="#dff4e5"]
+  db [label="postgres-primary\n10.10.21.20:5432\nread/write primary", fillcolor="#fff7d6"]
+  route [label="primary return route\n10.10.11.0/24 via 10.10.21.2", fillcolor="#eaf3ff"]
+  hba [label="pg_hba.conf\napplication/auth policy\nafter network firewall", fillcolor="#f2f2f2"]
+  app -> router [label="NEW TCP :5432", style=solid]; router -> db [label="FORWARD allow", style=solid]; db -> router [label="reply via return route", style=solid]; router -> app [style=solid]
+  db -> hba [label="PostgreSQL accepts/rejects", style=dotted]
+  route -> db [style=dotted]
+  legend -> app [style=invis]
+}

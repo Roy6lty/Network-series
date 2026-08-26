@@ -1,0 +1,17 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 10 | NAT gateway and MASQUERADE", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  app [label="app-a-test\n10.10.11.10:40000\ndefault via 10.10.11.3"]
+  nat [label="nat-gateway\napp_a .11.3\napp_b .12.3\nnat_public .30.2\nIP forwarding + conntrack", shape=hexagon, fillcolor="#fff7d6"]
+  public [label="nat_public\n10.10.30.0/24\nobserver .30.10:8080"]
+  host [label="Docker host / upstream\npublic-side next hop"]
+  before [label="before NAT\nsrc 10.10.11.10:40000\ndst 10.10.30.10:8080", fillcolor="#eaf3ff"]
+  after [label="after MASQUERADE\nsrc 10.10.30.2:40000\ndst 10.10.30.10:8080", fillcolor="#dff4e5"]
+  app -> nat [label="route chooses NAT", style=solid]; nat -> public [label="MASQUERADE on egress", style=solid]; public -> host [label="optional external egress", style=solid]
+  before -> nat [label="packet enters", style=dotted]; nat -> after [label="source rewrite", style=dotted]
+  public -> nat [label="conntrack restores private destination", style=solid]
+  app -> host [label="direct private egress blocked", style=dashed, color="#a33a3a"]
+  legend -> app [style=invis]
+}

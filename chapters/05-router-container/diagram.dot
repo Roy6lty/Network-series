@@ -1,0 +1,15 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 05 | Multi-homed Linux router", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  router [label="lab-router\nNET_ADMIN\nip_forward=1\nconnected routes", fillcolor="#dff4e5", shape=hexagon]
+  subgraph cluster_pa { label="public_a\n10.10.1.0/24"; style="rounded,dashed"; pa [label=".2 router\n.10 client"] }
+  subgraph cluster_pb { label="public_b\n10.10.2.0/24"; style="rounded,dashed"; pb [label=".2 router\n.10 client"] }
+  subgraph cluster_aa { label="app_a\n10.10.11.0/24"; style="rounded,dashed"; aa [label=".2 router\n.10 client"] }
+  subgraph cluster_ab { label="app_b\n10.10.12.0/24"; style="rounded,dashed"; ab [label=".2 router\n.10 client"] }
+  subgraph cluster_da { label="db_a\n10.10.21.0/24"; style="rounded,dashed"; da [label=".2 router\n.10 client"] }
+  subgraph cluster_db { label="db_b\n10.10.22.0/24"; style="rounded,dashed"; db [label=".2 router\n.10 client"] }
+  router -> pa [label="eth on public_a", style=solid]; router -> pb [label="eth on public_b", style=solid]; router -> aa [label="eth on app_a", style=solid]; router -> ab [label="eth on app_b", style=solid]; router -> da [label="eth on db_a", style=solid]; router -> db [label="eth on db_b", style=solid]
+  legend -> router [style=invis]
+}

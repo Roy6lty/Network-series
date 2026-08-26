@@ -1,0 +1,128 @@
+services:
+
+  # --------------------------------------------------
+  # PUBLIC TIER
+  # --------------------------------------------------
+
+  public-a-test:
+    image: alpine:3.20
+    container_name: public-a-test
+    command: ["sleep", "infinity"]
+    cap_add:
+      - NET_ADMIN
+    networks:
+      public_a:
+        ipv4_address: 10.10.1.10
+
+  public-b-test:
+    image: alpine:3.20
+    container_name: public-b-test
+    command: ["sleep", "infinity"]
+    cap_add:
+      - NET_ADMIN
+    networks:
+      public_b:
+        ipv4_address: 10.10.2.10
+
+
+  # --------------------------------------------------
+  # APPLICATION TIER
+  # --------------------------------------------------
+
+  app-a-test:
+    image: alpine:3.20
+    container_name: app-a-test
+    command: ["sleep", "infinity"]
+    cap_add:
+      - NET_ADMIN
+    networks:
+      app_a:
+        ipv4_address: 10.10.11.10
+
+  app-b-test:
+    image: alpine:3.20
+    container_name: app-b-test
+    command: ["sleep", "infinity"]
+    cap_add:
+      - NET_ADMIN
+    networks:
+      app_b:
+        ipv4_address: 10.10.12.10
+
+
+  # --------------------------------------------------
+  # DATABASE TIER
+  # --------------------------------------------------
+
+  db-a-test:
+    image: alpine:3.20
+    container_name: db-a-test
+    command: ["sleep", "infinity"]
+    cap_add:
+      - NET_ADMIN
+    networks:
+      db_a:
+        ipv4_address: 10.10.21.10
+
+  db-b-test:
+    image: alpine:3.20
+    container_name: db-b-test
+    command: ["sleep", "infinity"]
+    cap_add:
+      - NET_ADMIN
+    networks:
+      db_b:
+        ipv4_address: 10.10.22.10
+
+
+# ==================================================
+# NETWORKS
+# ==================================================
+
+networks:
+
+  public_a:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.1.0/24
+          gateway: 10.10.1.1
+
+  public_b:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.2.0/24
+          gateway: 10.10.2.1
+
+  app_a:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.10.11.0/24
+          gateway: 10.10.11.1
+
+  app_b:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.10.12.0/24
+          gateway: 10.10.12.1
+
+  db_a:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.10.21.0/24
+          gateway: 10.10.21.1
+
+  db_b:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.10.22.0/24
+          gateway: 10.10.22.1

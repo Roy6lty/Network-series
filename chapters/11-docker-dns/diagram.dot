@@ -1,0 +1,17 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 11 | Docker embedded DNS versus raw IP", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  app [label="app-a-test\napplication\nraw IP works"]
+  resolver [label="127.0.0.11\nDocker embedded DNS", fillcolor="#fff7d6"]
+  service [label="postgres-primary\nservice-name lookup\nshared-network answer", fillcolor="#dff4e5"]
+  upstream [label="upstream resolver\nexample.com", fillcolor="#f2f2f2"]
+  ip [label="10.10.21.20\nroute + TCP test", fillcolor="#eaf3ff"]
+  app -> ip [label="direct address", style=solid]
+  app -> resolver [label="hostname query", style=dotted]
+  resolver -> service [label="Docker service discovery", style=dotted]
+  resolver -> upstream [label="external DNS forwarding", style=dotted]
+  app -> upstream [label="if DNS path is broken", style=dashed, color="#a33a3a"]
+  legend -> app [style=invis]
+}

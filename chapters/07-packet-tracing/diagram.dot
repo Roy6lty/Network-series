@@ -1,0 +1,16 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 07 | tcpdump sees both router interfaces", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  client [label="public-a-test\n10.10.1.10\nICMP echo request"]
+  ingress [label="router ingress\npublic_a eth\n10.10.1.2", fillcolor="#fff7d6"]
+  router [label="lab-router\nforwarding decision", shape=hexagon, fillcolor="#dff4e5"]
+  egress [label="router egress\napp_b eth\n10.10.12.2", fillcolor="#fff7d6"]
+  server [label="app-b-test\n10.10.12.10\nICMP echo reply"]
+  capture [label="tcpdump -i any -nn icmp\nobserves ingress + egress", fillcolor="#f2f2f2"]
+  client -> ingress [label="echo request", style=solid]; ingress -> router [style=solid]; router -> egress [style=solid]; egress -> server [label="forwarded request", style=solid]
+  server -> egress [label="reply", style=solid]; egress -> router [style=solid]; router -> ingress [style=solid]; ingress -> client [label="reply delivered", style=solid]
+  capture -> router [label="observation only", style=dotted]
+  legend -> client [style=invis]
+}

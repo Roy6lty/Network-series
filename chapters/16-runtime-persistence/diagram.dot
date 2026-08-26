@@ -1,0 +1,16 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 16 | Entrypoint persistence and replica bootstrap", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  docker [label="Docker starts\nreplica container"]
+  wrapper [label="lab-entrypoint.sh\nroute replace\nwait for primary\nbasebackup if PGDATA empty", fillcolor="#fff7d6"]
+  official [label="docker-entrypoint.sh\ninitialization delegation", fillcolor="#eaf3ff"]
+  postgres [label="postgres PID 1\nstandby.signal\nread-only recovery", fillcolor="#dff4e5"]
+  volume [label="postgres_replica_data\nPGDATA persists across restart", fillcolor="#f2f2f2"]
+  primary [label="primary 10.10.21.20\nWAL source"]
+  docker -> wrapper [label="ENTRYPOINT", style=solid]; wrapper -> official [label="exec", style=solid]; official -> postgres [label="exec postgres", style=solid]; postgres -> volume [label="cluster state", style=dotted]
+  wrapper -> primary [label="basebackup / readiness", style=dotted]
+  wrapper -> volume [label="skip bootstrap when PG_VERSION exists", style=dashed, color="#a33a3a"]
+  legend -> docker [style=invis]
+}

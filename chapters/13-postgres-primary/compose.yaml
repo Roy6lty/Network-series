@@ -1,0 +1,35 @@
+services:
+  postgres-primary:
+    build:
+      context: chapters/13-postgres-primary/postgres-primary
+    image: docker-networking-vpc-lab/postgres-primary:lab
+    environment:
+      POSTGRES_USER: labadmin
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: labdb
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_senders=10
+      - -c
+      - listen_addresses=*
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+    cap_add:
+      - NET_ADMIN
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labadmin -d labdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./chapters/13-postgres-primary/postgres-primary/init.sql:/docker-entrypoint-initdb.d/01-lab.sql:ro
+    networks:
+      db_a:
+        ipv4_address: 10.10.21.20
+
+volumes:
+  postgres_primary_data:

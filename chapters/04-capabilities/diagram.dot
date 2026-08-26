@@ -1,0 +1,16 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 04 | CAP_NET_ADMIN enables network mutation", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  app [label="app-a-test\nroot inside container\n10.10.11.10"]
+  capability [label="NET_ADMIN\ncapability granted\nroute/interface/firewall changes", fillcolor="#dff4e5"]
+  route [label="ip route replace\n10.10.12.0/24\nvia 10.10.11.2", fillcolor="#dff4e5"]
+  denied [label="without capability\nOperation not permitted", style="rounded,dashed,filled", fillcolor="#ffe5e5", color="#a33a3a"]
+  router [label="future lab-router\nnot present yet", style="rounded,dashed,filled", fillcolor="#f2f2f2"]
+  app -> capability [label="container root", style=dotted]
+  capability -> route [label="authorized mutation", style=solid]
+  app -> denied [label="same command without NET_ADMIN", style=dashed, color="#a33a3a"]
+  route -> router [label="next hop is introduced later", style=dashed, color="#a33a3a"]
+  legend -> app [style=invis]
+}

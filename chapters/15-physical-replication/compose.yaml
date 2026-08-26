@@ -1,0 +1,23 @@
+services:
+  postgres-replica:
+    build:
+      context: chapters/15-physical-replication/postgres-replica
+    image: docker-networking-vpc-lab/postgres-replica:manual
+    environment:
+      POSTGRES_USER: labadmin
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: labdb
+    command: ["sleep", "infinity"]
+    cap_add:
+      - NET_ADMIN
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+    networks:
+      db_b:
+        ipv4_address: 10.10.22.20
+
+volumes:
+  postgres_replica_data:

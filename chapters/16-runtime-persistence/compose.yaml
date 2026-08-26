@@ -1,0 +1,18 @@
+services:
+  postgres-replica:
+    build:
+      context: chapters/16-runtime-persistence/postgres-replica
+    image: docker-networking-vpc-lab/postgres-replica:persistent
+    command:
+      - postgres
+      - -c
+      - hba_file=/etc/postgresql/replica-pg_hba.conf
+    environment:
+      LAB_REPLICA_BOOTSTRAP: "true"
+      PRIMARY_HOST: 10.10.21.20
+      REPLICA_PASSWORD: replica_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labadmin -d labdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20

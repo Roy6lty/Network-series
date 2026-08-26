@@ -1,0 +1,12 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 03 | Container network namespace inspection", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  subgraph cluster_namespace { label="app-a-test network namespace"; style="rounded,dashed"; color="#3875a5"; loop [label="lo\n127.0.0.1"] ; eth0 [label="eth0\n10.10.11.10/24\ncontainer interface"]; routes [label="routing table\nconnected app_a route\nno remote next hop", fillcolor="#fff7d6"]; neigh [label="neighbor table\nARP / IP -> MAC", fillcolor="#fff7d6"]; loop -> eth0 [style=dotted, label="namespace"] ; eth0 -> routes [style=dotted]; eth0 -> neigh [style=dotted] }
+  bridge [label="Docker bridge\n10.10.11.1\nLayer-2 segment", fillcolor="#f2f2f2"]
+  remote [label="10.10.12.10\nseparate bridge", style="rounded,dashed,filled", fillcolor="#ffe5e5", color="#a33a3a"]
+  eth0 -> bridge [label="same subnet", style=solid]
+  routes -> remote [label="no usable route", style=dashed, color="#a33a3a"]
+  legend -> loop [style=invis]
+}

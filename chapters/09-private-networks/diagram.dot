@@ -1,0 +1,15 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 09 | Internal application and database bridges", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  public [label="public_a / public_b\nreachable public zones"]
+  router [label="lab-router\nexplicit inter-subnet path", shape=hexagon, fillcolor="#dff4e5"]
+  app [label="app_a + app_b\ninternal: true\nno normal Docker host egress", fillcolor="#fff7d6"]
+  db [label="db_a + db_b\ninternal: true\nprivate data zones", fillcolor="#fff7d6"]
+  host [label="Docker host / internet\nnot directly attached", style="rounded,dashed,filled", fillcolor="#ffe5e5", color="#a33a3a"]
+  public -> router [label="routed lab traffic", style=solid]; router -> app [style=solid]; router -> db [style=solid]
+  app -> host [label="internal bridge blocks normal egress", style=dashed, color="#a33a3a"]
+  db -> host [label="internal bridge blocks normal egress", style=dashed, color="#a33a3a"]
+  legend -> public [style=invis]
+}

@@ -1,0 +1,5 @@
+services:
+  lab-router:
+    build:
+      context: chapters/08-iptables-firewall/router
+    image: docker-networking-vpc-lab/lab-router:firewall

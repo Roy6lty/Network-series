@@ -1,0 +1,15 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 12 | Public Nginx reverse proxy to private app", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  client [label="public-a-test\n10.10.1.10\nHTTP :80"]
+  nginx [label="nginx-a\n10.10.1.3\npublic listener :80\nupstream route via .1.2", fillcolor="#fff7d6"]
+  router [label="lab-router\nFORWARD TCP 8000", shape=hexagon, fillcolor="#dff4e5"]
+  app [label="app-a-test\n10.10.11.10\nPython HTTP :8000"]
+  session1 [label="TCP session 1\nclient <-> nginx", fillcolor="#eaf3ff"]
+  session2 [label="TCP session 2\nnginx <-> app", fillcolor="#eaf3ff"]
+  client -> nginx [label="HTTP request :80", style=solid]; nginx -> router [label="new upstream TCP :8000", style=solid]; router -> app [style=solid]; app -> router [label="HTTP response", style=solid]; router -> nginx [style=solid]; nginx -> client [label="proxy response", style=solid]
+  session1 -> client [style=dotted]; session2 -> router [style=dotted]
+  legend -> client [style=invis]
+}

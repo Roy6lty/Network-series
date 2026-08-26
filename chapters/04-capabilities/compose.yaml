@@ -1,0 +1,48 @@
+services:
+  public-a-test:
+    build:
+      context: chapters/04-capabilities/tools
+    image: docker-networking-vpc-lab/lab-tools:latest
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  public-b-test:
+    build:
+      context: chapters/04-capabilities/tools
+    image: docker-networking-vpc-lab/lab-tools:latest
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  app-a-test:
+    build:
+      context: chapters/04-capabilities/tools
+    image: docker-networking-vpc-lab/lab-tools:latest
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  app-b-test:
+    build:
+      context: chapters/04-capabilities/tools
+    image: docker-networking-vpc-lab/lab-tools:latest
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  db-a-test:
+    build:
+      context: chapters/04-capabilities/tools
+    image: docker-networking-vpc-lab/lab-tools:latest
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  db-b-test:
+    build:
+      context: chapters/04-capabilities/tools
+    image: docker-networking-vpc-lab/lab-tools:latest
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW

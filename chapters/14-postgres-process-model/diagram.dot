@@ -1,0 +1,16 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 14 | PostgreSQL process tree inside a container", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  client [label="client session\napp or psql"]
+  pid1 [label="postgres main\ncontainer PID 1\nlistens on :5432", fillcolor="#dff4e5"]
+  backend [label="client backend\none OS process per session"]
+  workers [label="background workers\ncheckpointer\nwalwriter\nautovacuum", fillcolor="#fff7d6"]
+  shell [label="shell job control\nCtrl-Z / bg / fg\njobs", fillcolor="#f2f2f2"]
+  client -> pid1 [label="TCP / Unix socket", style=solid]
+  pid1 -> backend [label="forks session backend", style=dotted]
+  pid1 -> workers [label="supervises workers", style=dotted]
+  shell -> pid1 [label="do not background DB itself", style=dashed, color="#a33a3a"]
+  legend -> client [style=invis]
+}

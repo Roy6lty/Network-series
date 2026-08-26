@@ -1,0 +1,15 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 02 | Six isolated Docker bridge networks", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  subgraph cluster_public_a { label="public_a | 10.10.1.0/24 | gw .1"; style="rounded,dashed"; color="#3875a5"; pa [label="public-a-test\n10.10.1.10"] }
+  subgraph cluster_public_b { label="public_b | 10.10.2.0/24 | gw .1"; style="rounded,dashed"; color="#3875a5"; pb [label="public-b-test\n10.10.2.10"] }
+  subgraph cluster_app_a { label="app_a | 10.10.11.0/24 | bridge"; style="rounded,dashed"; color="#6b8e55"; aa [label="app-a-test\n10.10.11.10"] }
+  subgraph cluster_app_b { label="app_b | 10.10.12.0/24 | bridge"; style="rounded,dashed"; color="#6b8e55"; ab [label="app-b-test\n10.10.12.10"] }
+  subgraph cluster_db_a { label="db_a | 10.10.21.0/24 | bridge"; style="rounded,dashed"; color="#9b6b55"; da [label="db-a-test\n10.10.21.10"] }
+  subgraph cluster_db_b { label="db_b | 10.10.22.0/24 | bridge"; style="rounded,dashed"; color="#9b6b55"; db [label="db-b-test\n10.10.22.10"] }
+  aa -> ab [label="no route / no router", style=dashed, color="#a33a3a"]
+  pa -> da [label="isolated L2 segments", style=dashed, color="#a33a3a"]
+  legend -> pa [style=invis]
+}

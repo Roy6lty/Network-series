@@ -1,0 +1,78 @@
+services:
+  public-a-test:
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        ip route replace 10.10.2.0/24 via 10.10.1.2
+        ip route replace 10.10.11.0/24 via 10.10.1.2
+        ip route replace 10.10.12.0/24 via 10.10.1.2
+        ip route replace 10.10.21.0/24 via 10.10.1.2
+        ip route replace 10.10.22.0/24 via 10.10.1.2
+        sleep infinity
+
+  public-b-test:
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        ip route replace 10.10.1.0/24 via 10.10.2.2
+        ip route replace 10.10.11.0/24 via 10.10.2.2
+        ip route replace 10.10.12.0/24 via 10.10.2.2
+        ip route replace 10.10.21.0/24 via 10.10.2.2
+        ip route replace 10.10.22.0/24 via 10.10.2.2
+        sleep infinity
+
+  app-a-test:
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        ip route replace 10.10.1.0/24 via 10.10.11.2
+        ip route replace 10.10.2.0/24 via 10.10.11.2
+        ip route replace 10.10.12.0/24 via 10.10.11.2
+        ip route replace 10.10.21.0/24 via 10.10.11.2
+        ip route replace 10.10.22.0/24 via 10.10.11.2
+        sleep infinity
+
+  app-b-test:
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        ip route replace 10.10.1.0/24 via 10.10.12.2
+        ip route replace 10.10.2.0/24 via 10.10.12.2
+        ip route replace 10.10.11.0/24 via 10.10.12.2
+        ip route replace 10.10.21.0/24 via 10.10.12.2
+        ip route replace 10.10.22.0/24 via 10.10.12.2
+        sleep infinity
+
+  db-a-test:
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        ip route replace 10.10.1.0/24 via 10.10.21.2
+        ip route replace 10.10.2.0/24 via 10.10.21.2
+        ip route replace 10.10.11.0/24 via 10.10.21.2
+        ip route replace 10.10.12.0/24 via 10.10.21.2
+        ip route replace 10.10.22.0/24 via 10.10.21.2
+        sleep infinity
+
+  db-b-test:
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        ip route replace 10.10.1.0/24 via 10.10.22.2
+        ip route replace 10.10.2.0/24 via 10.10.22.2
+        ip route replace 10.10.11.0/24 via 10.10.22.2
+        ip route replace 10.10.12.0/24 via 10.10.22.2
+        ip route replace 10.10.21.0/24 via 10.10.22.2
+        sleep infinity

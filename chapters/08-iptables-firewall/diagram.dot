@@ -1,0 +1,17 @@
+digraph lab {
+  graph [rankdir=LR, bgcolor="#ffffff", pad=0.25, nodesep=0.45, ranksep=0.65, fontname="Arial", label="Chapter 08 | Stateful FORWARD firewall", labelloc=t, fontsize=22, fontcolor="#17324d"]
+  node [shape=box, style="rounded,filled", fillcolor="#eaf3ff", color="#24527a", fontname="Arial", fontsize=10, margin="0.12,0.08"]
+  edge [fontname="Arial", fontsize=9, color="#24527a", arrowsize=0.7]
+  legend [shape=note, fillcolor="#fff7d6", color="#9b7b17", label="LEGEND\nsolid = active data path\ndashed = blocked or not yet introduced\ndotted = control, observation, DNS, or process relationship"]
+  public [label="public_a\n10.10.1.0/24\nclient"]
+  router [label="lab-router\nFORWARD policy DROP\nconntrack state", shape=hexagon, fillcolor="#fff7d6"]
+  app [label="app_a\n10.10.11.0/24\nTCP 8000"]
+  db [label="db_a\n10.10.21.0/24\nTCP 5432"]
+  blocked [label="app_b\n10.10.12.0/24\nTCP 8000", style="rounded,dashed,filled", fillcolor="#ffe5e5", color="#a33a3a"]
+  established [label="ESTABLISHED,RELATED\nreturn packets accepted", fillcolor="#dff4e5"]
+  public -> router [label="new TCP 8000", style=solid]; router -> app [label="explicit allow", style=solid]
+  app -> router [label="new TCP 5432", style=solid]; router -> db [label="explicit allow", style=solid]
+  router -> established [label="state match", style=dotted]; established -> public [label="reverse traffic", style=solid]
+  router -> blocked [label="no matching rule = DROP", style=dashed, color="#a33a3a"]
+  legend -> public [style=invis]
+}
