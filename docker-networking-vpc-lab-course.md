@@ -40,6 +40,32 @@ experiments. The final Docker design is a teaching model for cloud concepts,
 not a production VPC replacement, but the troubleshooting habits transfer
 directly to real infrastructure.
 
+## Executable Chapter Index
+
+Use the chapter links below to move from the narrative curriculum into the
+cumulative Compose lab. Each chapter loads its own overlay together with every
+earlier overlay.
+
+| Chapter | Executable lesson |
+|---|---|
+| 01 | [Container process model](chapters/01-container-process/) |
+| 02 | [CIDR and bridge networks](chapters/02-cidr-bridges/) |
+| 03 | [Network namespaces](chapters/03-network-namespaces/) |
+| 04 | [Linux capabilities](chapters/04-capabilities/) |
+| 05 | [Multi-homed router](chapters/05-router-container/) |
+| 06 | [Static routing](chapters/06-static-routing/) |
+| 07 | [Packet tracing](chapters/07-packet-tracing/) |
+| 08 | [Stateful firewalling](chapters/08-iptables-firewall/) |
+| 09 | [Private networks](chapters/09-private-networks/) |
+| 10 | [NAT gateway](chapters/10-nat-gateway/) |
+| 11 | [Docker DNS](chapters/11-docker-dns/) |
+| 12 | [Nginx public access](chapters/12-nginx-public-access/) |
+| 13 | [PostgreSQL primary](chapters/13-postgres-primary/) |
+| 14 | [PostgreSQL process model](chapters/14-postgres-process-model/) |
+| 15 | [Physical streaming replication](chapters/15-physical-replication/) |
+| 16 | [Runtime persistence](chapters/16-runtime-persistence/) |
+| 17 | [Failure testing](chapters/17-failure-testing/) |
+
 ---
 
 ## Why Markdown is the primary format

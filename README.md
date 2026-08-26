@@ -81,23 +81,23 @@ bash scripts/compose-stage.sh 17 down -v
 
 | Chapter | Focus | New capability |
 |---|---|---|
-| 01 | Container process model | PID 1, `sleep`, command lifecycle |
-| 02 | CIDR and bridge networks | Six isolated subnets |
-| 03 | Network namespaces | Interfaces, routes, and neighbors |
-| 04 | Linux capabilities | `CAP_NET_ADMIN` and reusable lab tools |
-| 05 | Router container | Multi-homed forwarding node |
-| 06 | Static routing | Remote subnet next hops and return paths |
-| 07 | Packet tracing | `tcpdump` observations |
-| 08 | Stateful firewalling | `iptables`, conntrack, port segmentation |
-| 09 | Private networks | Docker `internal: true` networks |
-| 10 | NAT gateway | Default routes and MASQUERADE |
-| 11 | Docker DNS | Name resolution versus raw IP connectivity |
-| 12 | Public reverse proxy | Nginx to app-tier HTTP flow |
-| 13 | PostgreSQL primary | Database routing and process startup |
-| 14 | PostgreSQL process model | Background processes and job control |
-| 15 | Physical replication | Manual `pg_basebackup` and standby mode |
-| 16 | Runtime persistence | Idempotent entrypoints and automatic bootstrap |
-| 17 | Failure testing | Repeatable checks and cloud/VPC mapping |
+| [01 Container process model](chapters/01-container-process/) | PID 1, `sleep`, command lifecycle | Container process fundamentals |
+| [02 CIDR and bridge networks](chapters/02-cidr-bridges/) | Six isolated subnets | Docker IPAM and Layer-2 isolation |
+| [03 Network namespaces](chapters/03-network-namespaces/) | Interfaces, routes, and neighbors | Namespace inspection |
+| [04 Linux capabilities](chapters/04-capabilities/) | `CAP_NET_ADMIN` and reusable lab tools | Privileged network operations |
+| [05 Router container](chapters/05-router-container/) | Multi-homed forwarding node | IPv4 forwarding |
+| [06 Static routing](chapters/06-static-routing/) | Remote subnet next hops and return paths | Routed connectivity |
+| [07 Packet tracing](chapters/07-packet-tracing/) | `tcpdump` observations | Ingress and egress evidence |
+| [08 Stateful firewalling](chapters/08-iptables-firewall/) | `iptables`, conntrack, port segmentation | Default-deny forwarding |
+| [09 Private networks](chapters/09-private-networks/) | Docker `internal: true` networks | Private subnet boundaries |
+| [10 NAT gateway](chapters/10-nat-gateway/) | Default routes and MASQUERADE | Private egress translation |
+| [11 Docker DNS](chapters/11-docker-dns/) | Name resolution versus raw IP connectivity | Service discovery |
+| [12 Public reverse proxy](chapters/12-nginx-public-access/) | Nginx to app-tier HTTP flow | Public HTTP access |
+| [13 PostgreSQL primary](chapters/13-postgres-primary/) | Database routing and process startup | Writable database tier |
+| [14 PostgreSQL process model](chapters/14-postgres-process-model/) | Background processes and job control | Database process inspection |
+| [15 Physical replication](chapters/15-physical-replication/) | Manual `pg_basebackup` and standby mode | Initial physical standby |
+| [16 Runtime persistence](chapters/16-runtime-persistence/) | Idempotent entrypoints and automatic bootstrap | Repeatable startup |
+| [17 Failure testing](chapters/17-failure-testing/) | Repeatable checks and cloud/VPC mapping | Final validation |
 
 ## Teaching loop
 
