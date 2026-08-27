@@ -81,7 +81,7 @@ bash scripts/compose-stage.sh 01 ps
 
 ```text
 NAME                            IMAGE         COMMAND            SERVICE         CREATED          STATUS          PORTS
-docker-subnet-public-a-test-1   alpine:3.20   "sleep infinity"   public-a-test   16 minutes ago 
+docker-subnet-public-a-test-1   alpine:3.20   "sleep infinity"   public-a-test   ------           -------         -------
 ```
 
 ### confirm the main process running inside the container
@@ -124,5 +124,7 @@ Clean up with `bash scripts/compose-stage.sh 01 down` before moving on.
 ## Clean Up
 cleaning up resources 
 ```bash 
-bash scripts/compose-stage.sh 01 down -d
+bash scripts/compose-stage.sh 01 down
 ```
+
+## Conclusion
