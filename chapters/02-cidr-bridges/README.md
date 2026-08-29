@@ -348,6 +348,12 @@ The failure is expected.
 The packet cannot reach `10.10.12.10` because:
 
 ```text
+
+2 packets transmitted, 0 packets received, 100% packet loss
+```
+packets are being dropped because it cannot reach the other container on the second network
+
+```text
 app-a-test
 10.10.11.10
     |
