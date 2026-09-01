@@ -1,6 +1,5 @@
 #!/bin/sh
 set -eu
 
-sysctl -w net.ipv4.ip_forward=1 >/dev/null
 
 exec "$@"
