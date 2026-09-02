@@ -84,6 +84,31 @@ write_diagram "05-router-container" "Chapter 05 | Multi-homed Linux router" <<'D
   legend -> router [style=invis]
 DOT
 
+write_diagram "05b-muliti-router" "Chapter 05B | Routed network chain" <<'DOT'
+  shell1 [label="shell-1\n10.50.1.10"]
+  router1 [label="lab-router-1\n10.50.1.2 <-> 10.50.2.2\nip_forward=1", shape=hexagon, fillcolor="#dff4e5"]
+  shell2 [label="shell-2\n10.50.2.10"]
+  router2 [label="lab-router-2\n10.50.2.3 <-> 10.50.3.2\nip_forward=1", shape=hexagon, fillcolor="#dff4e5"]
+  shell3 [label="shell-3\n10.50.3.10"]
+  router3 [label="lab-router-3\n10.50.3.3 <-> 10.50.4.2\nip_forward=1", shape=hexagon, fillcolor="#dff4e5"]
+  shell4 [label="shell-4\n10.50.4.10"]
+  net1 [label="net_1\n10.50.1.0/24", fillcolor="#eaf3ff"]
+  net2 [label="net_2\n10.50.2.0/24", fillcolor="#eaf3ff"]
+  net3 [label="net_3\n10.50.3.0/24", fillcolor="#eaf3ff"]
+  net4 [label="net_4\n10.50.4.0/24", fillcolor="#eaf3ff"]
+  shell1 -> net1 [label="direct", style=solid]
+  net1 -> router1 [label="first hop", style=solid]
+  router1 -> net2 [label="forward", style=solid]
+  net2 -> shell2 [label="local endpoint", style=dotted]
+  net2 -> router2 [label="next hop", style=solid]
+  router2 -> net3 [label="forward", style=solid]
+  net3 -> shell3 [label="destination", style=solid]
+  net3 -> router3 [label="next hop for net_4", style=dotted]
+  router3 -> net4 [label="forward", style=solid]
+  net4 -> shell4 [label="local endpoint", style=dotted]
+  legend -> shell1 [style=invis]
+DOT
+
 write_diagram "06-static-routing" "Chapter 06 | Static routes and return paths" <<'DOT'
   source [label="public-a-test\n10.10.1.10\nroute: db_b via 10.10.1.2"]
   router [label="lab-router\n10.10.1.2 <-> 10.10.22.2\nip_forward=1", fillcolor="#dff4e5", shape=hexagon]

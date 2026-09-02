@@ -43,8 +43,9 @@ directly to real infrastructure.
 ## Executable Chapter Index
 
 Use the chapter links below to move from the narrative curriculum into the
-cumulative Compose lab. Each chapter loads its own overlay together with every
-earlier overlay.
+cumulative Compose lab. Each numbered chapter loads its own overlay together
+with every earlier numbered overlay. Chapter 05B is an alternate standalone
+router-chain lab.
 
 | Chapter | Executable lesson |
 |---|---|
@@ -53,6 +54,7 @@ earlier overlay.
 | 03 | [Network namespaces](chapters/03-network-namespaces/) |
 | 04 | [Linux capabilities](chapters/04-capabilities/) |
 | 05 | [Multi-homed router](chapters/05-router-container/) |
+| 05B | [Routed network chain](chapters/05b-muliti-router/) |
 | 06 | [Static routing](chapters/06-static-routing/) |
 | 07 | [Packet tracing](chapters/07-packet-tracing/) |
 | 08 | [Stateful firewalling](chapters/08-iptables-firewall/) |
@@ -1726,8 +1728,9 @@ volumes:
 
 The lab is implemented as cumulative chapter directories rather than a set of
 flat lesson files. Each `compose.yaml` is an overlay: the chapter runner loads
-it together with every earlier overlay, so a learner can start at any chapter
-without losing the infrastructure built previously.
+it together with every earlier numbered overlay, so a learner can start at any
+numbered chapter without losing the infrastructure built previously. Chapter
+05B is a standalone alternate topology selected explicitly by the runner.
 
 ```text
 docker-networking-vpc-lab/
@@ -1742,6 +1745,9 @@ docker-networking-vpc-lab/
 │   │   └── tools/Dockerfile
 │   ├── 05-router-container/
 │   │   └── router/{Dockerfile,entrypoint.sh}
+│   ├── 05b-muliti-router/
+│   │   ├── router/{Dockerfile,entrypoint.sh}
+│   │   └── tools/Dockerfile
 │   ├── 06-static-routing/
 │   ├── 07-packet-tracing/
 │   ├── 08-iptables-firewall/

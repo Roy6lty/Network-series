@@ -44,7 +44,7 @@ remote subnet.
 
 A hop is one Layer-3 forwarding step through a router.
 
-if shell-1 wants to reach shell-3 the packets sent are hop between router till it gets to its destination
+If `shell-1` wants to reach `shell-3`, the packet must hop between routers until it reaches its destination.
 ```text
 shell-1
    |
@@ -89,6 +89,39 @@ By the end of this lab you should be able to:
 - observe router hops with `traceroute`;
 - break one route and diagnose where the path fails;
 - automate known-good routes only after understanding them.
+
+
+## Chapter Progression
+
+This chapter builds directly on Chapter 05.
+
+In Chapter 05, one multi-homed router was directly connected to every lab network.
+
+In Chapter 05B, no single router knows every network. The learner now builds the route one hop at a time:
+
+```text
+Chapter 05
+one router
++
+directly connected networks
+        ↓
+Chapter 05B
+multiple routers
++
+static next-hop routes
++
+forward path
++
+return path
++
+traceroute
++
+failure diagnosis
++
+automation
+```
+
+Each part should answer a problem created by the previous part.
 
 ---
 
@@ -187,7 +220,7 @@ lab-router-3
 
 ## Task 2: Inspect the Transit Network
 
-We have four different network with `net_1`, `net_2`, `net_3`, `net_4`
+We have four different networks: `net_1`, `net_2`, `net_3`, and `net_4`.
 
 ```text
 a. 3 routers
@@ -198,15 +231,15 @@ b. 4 shells (one inside each subnet)
  
 ```
 
-Next we break down resources in each network
+Next, we break down the resources in each network.
 ```text
-`net_1` ====> shell_1 and lab-router-1
-`net_2` ====> shell_2,  lab-router-1 lab_router-2
-`net_3` ====> shell_3, lab-router-2 lab_router-3
-`net_4` ====> shell_4,  lab-router-3 
+`net_1` ====> shell-1 and lab-router-1
+`net_2` ====> shell-2,  lab-router-1, lab-router-2
+`net_3` ====> shell-3, lab-router-2, lab-router-3
+`net_4` ====> shell-4,  lab-router-3 
 ```
 
-Lets inspect `net_1`
+Let's inspect `net_1`
 ```bash
 docker network inspect docker-subnet_net_1
 ```
@@ -218,7 +251,7 @@ shell-1       10.50.1.10
 lab-router-1   10.50.1.2
 ```
 
-Lets inspect `net_2`
+Let's inspect `net_2`
 ```bash
 docker network inspect docker-subnet_net_2
 ```
@@ -232,7 +265,7 @@ lab-router-2   10.50.2.3
 ```
 
 
-Lets inspect `net_3`
+Let's inspect `net_3`
 
 ```bash
 docker network inspect docker-subnet_net_3
@@ -244,44 +277,56 @@ lab-router-2   10.50.3.2
 lab-router-3   10.50.3.3
 ```
 
-Lets inspect `net_4`
+Let's inspect `net_4`
 
 ```bash
 docker network inspect docker-subnet_net_4
 ```
 
 ```text
-shell-3        10.50.3.10
+shell-4        10.50.4.10
 lab-router-3   10.50.4.2
 ```
 
 ----------
+
+## Next Step
+
+We have confirmed which containers and routers share each Docker network.
+
+Next, inspect the routing tables to see what Linux already knows automatically before adding static routes.
+
+---
 
 # Part 2: Inspect What Linux Already Knows
 
 
 ## Task 3: Inspect `shell-1`
 
-Check the shell ip-address 
+Check the shell IP address. 
 ```bash
 bash scripts/compose-stage.sh 05b exec shell-1 ip addr
 ```
-You should see
+You should see output similar to:
+
+```text
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
     inet 127.0.0.1/8 scope host lo
        valid_lft forever preferred_lft forever
     inet6 ::1/128 scope host proto kernel_lo
        valid_lft forever preferred_lft forever
+
 2: eth0@if255: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
     link/ether e6:3b:21:b9:69:c3 brd ff:ff:ff:ff:ff:ff link-netnsid 0
     inet 10.50.1.10/24 brd 10.50.1.255 scope global eth0
        valid_lft forever preferred_lft forever
-```text
+```
+
+The important address is:
 
 ```text
-ip-address
-    inet 10.50.1.10/24 brd 10.50.1.255 scope global eth0
+10.50.1.10/24
 ```
 
 
@@ -290,26 +335,34 @@ ip-address
 bash scripts/compose-stage.sh 05b exec shell-1 ip route
 ```
 
-The route rules avalaible in the shell
+The routes available in the shell are:
 ```text
 default via 10.50.1.1 dev eth0
 10.50.1.0/24 dev eth0 proto kernel scope link src 10.50.1.10
 ```
 
 subnet ================> 10.50.1.0/24
-shell ip address ======>  10.50.1.10
+shell IP address ======>  10.50.1.10
 default gateway =======> 10.50.1.1
 
+Note: Docker configures a default gateway for containers on each bridge network.
+
+For `shell-1`, that gateway is:
+
 ```text
-Note: This shows the shell only know the docker address gate-way inside the network
-each network has a gateway address thsi is where packets enter into the network from the
-outside every container on a network knows it i address of the gateway on that docker network
+10.50.1.1
 ```
+
+If a destination does not match a more specific route, Linux sends the packet to this default gateway.
+
+This does **not** mean that the remote destination is guaranteed to be reachable through that gateway. In this lab, we want traffic for the custom subnets to use our router containers instead.
+
 -------------------------------------------
 
 
-### Test reachablity
-We want to test if shell-1 can reach 
+
+### Inspect the Route to `shell-3`
+Before testing connectivity, inspect how `shell-1` would currently try to reach `shell-3`.
 
 ```bash
 bash scripts/compose-stage.sh 05b exec shell-1   ip route get 10.50.3.10
@@ -318,19 +371,20 @@ bash scripts/compose-stage.sh 05b exec shell-1   ip route get 10.50.3.10
 ```text
 10.50.3.10 via 10.50.1.1 dev eth0 src 10.50.1.10 uid 0
 ```
-meaning
+Meaning:
 ```text
 destination = 10.50.3.10
-next hop    = 10.50.1.2
+next hop    = 10.50.1.1
 interface   = eth0
 source IP   = 10.50.1.10
 ```
 Record the result.
 
-This mean if shell-1 want to send a package to shell-3 
-it should sent it to docker gateway 
-but docker gateway does not know how to get to shell-3 hence you ping 
-shell-3 the package will be transmitted but no response will be recieved
+This means that `shell-1` currently chooses Docker's default gateway (`10.50.1.1`) because no more specific route exists.
+
+That route lookup only tells us which next hop Linux would choose. It does not prove that `shell-3` is reachable.
+
+Now test actual reachability with `ping`.
 
 ---
 
@@ -341,7 +395,7 @@ bash scripts/compose-stage.sh 05b exec shell-1 sh
 ping -c 3 10.50.3.10
 ```
 
-You should get package transmitted none recieved
+You should see packets transmitted with no replies received.
 
 ```text
 3 packets transmitted, 0 received, 100% packet loss, time 2066ms
@@ -350,7 +404,7 @@ You should get package transmitted none recieved
 
 ## Task 4: Inspect `lab-router-1`
 
-Now we will add the route to lab-router-1 to the lab
+Now inspect `lab-router-1` to see why it can connect `net_1` and `net_2`.
 
 ```bash
 bash scripts/compose-stage.sh 05b exec lab-router-1 ip addr
@@ -376,10 +430,11 @@ bash scripts/compose-stage.sh 05b exec lab-router-1 ip addr
  inet 10.50.2.2/24 brd 10.50.2.255 scope global eth1
 ```
 
-Next we check the avalble interfaces the lab-router-1 has available
-Note: Remeber an interface is like an interaction point where packets can enter or leave our container
-a container can have multiple interfaces and also interfaces are how the kernel transmits packets to the
-application layer
+Next, inspect the routes available on `lab-router-1`.
+
+Note: a network interface is the point through which the kernel sends and receives network traffic.
+
+Applications interact with sockets. The kernel networking stack moves data between sockets and network interfaces.
 
 ```bash
 bash scripts/compose-stage.sh 05b exec lab-router-1 ip route
@@ -396,30 +451,28 @@ You should find connected routes for:
 10.50.2.0/24
 ```
 
-Notice the lab-router-1 has 3 interfaces and 2 routes rules 
+Notice that `lab-router-1` has two network-facing interfaces plus loopback, and two connected network routes. 
 
 ```text
 10.50.1.0/24 dev eth0 proto kernel scope link src 10.50.1.2
 
-This shows on network 10.50.1.0/24 (net_1) the lab-router-1 has an ip address of 10.50.1.2
+This shows that on `net_1` (`10.50.1.0/24`), `lab-router-1` has the IP address `10.50.1.2`.
 
  and 
 
 10.50.2.0/24 dev eth1 proto kernel scope link src 10.50.2.2
 
-This shows on network 10.50.2.0(net_2) the lab-router-1 has an ip address of 10.50.2.2
+This shows that on `net_2` (`10.50.2.0/24`), `lab-router-1` has the IP address `10.50.2.2`.
 
 ```
 
-This is because the lab-router-1 is on net_1 and net_2 so it has ip address on both network
-now the effect of this now becomes the lab-router is able to transmit packats from one network to another 
-as long as it is on both networks
+`lab-router-1` is attached to both `net_1` and `net_2`, so Linux automatically creates connected routes for both networks.
 
-if you remeber when we transmitted a packets it was sent to the docker gateway where is was dropped as
-docker gateway doesnt know how to get the packets from net_1 to net_2. 
+With `net.ipv4.ip_forward=1`, the kernel can forward packets between those two network interfaces.
 
-But lab-router-1 is on both network so it can
-as you can see from the diagram below package sent 
+Previously, `shell-1` sent unmatched traffic to Docker's default gateway. For this lab, we want traffic for `net_2` to use `lab-router-1` instead.
+
+The diagram below shows the intended path.
 
 ```text
 +---------------------------+        +---------------------------+
@@ -431,9 +484,9 @@ as you can see from the diagram below package sent
 |   | 10.50.1.10        |   |        |   | 10.50.2.10        |   |
 |   +-------------------+   |        |   +-------------------+   |
 |                           |        |                           |
-| package >  <><>  +-------------------------+ <> <> < package   |
-|   sent           | lab-router-1            |         recived   |
-|    from shell-1  |                         |                   |
+| packet >  <><>  +-------------------------+ <> <> < packet   |
+|   sent           | lab-router-1            |         received   |
+|    from shell-2  |                         |                   |
 |                  | net_1: 10.50.1.2        |                   |
 +------------------| net_2: 10.50.2.2        |--------------------+
                    +-------------------------+
@@ -455,18 +508,18 @@ You should find connected routes for:
 10.50.3.0/24 dev eth1 proto kernel scope link src 10.50.3.2
 ```
 
-Notice the lab-router-1 has 3 interfaces and 2 routes rules 
+Notice that `lab-router-1` has two network-facing interfaces plus loopback, and two connected network routes. 
 
 ```text
 10.50.2.0/24 dev eth0 proto kernel scope link src 10.50.2.3
 
-This shows on network 10.50.1.0/24 (net_2) the lab-router-1 has an ip address of 10.50.1.2
+This shows that on `net_2` (`10.50.2.0/24`), `lab-router-2` has the IP address `10.50.2.3`.
 
  and 
 
 10.50.3.0/24 dev eth1 proto kernel scope link src 10.50.3.2
 
-This shows on network 10.50.2.0(net_3) the lab-router-1 has an ip address of 10.50.2.2
+This shows that on `net_3` (`10.50.3.0/24`), `lab-router-2` has the IP address `10.50.3.2`.
 
 ```
 
@@ -474,18 +527,18 @@ This shows on network 10.50.2.0(net_3) the lab-router-1 has an ip address of 10.
 ```text
 +---------------------------+        +---------------------------+
 | net_2                     |        | net_3                     |
-| 10.50.1.0/24              |        | 10.50.2.0/24              |
+| 10.50.2.0/24              |        | 10.50.3.0/24              |
 |                           |        |                           |
 |   +-------------------+   |        |   +-------------------+   |
 |   | shell-2           |   |        |   | shell-3           |   |
 |   | 10.50.2.10        |   |        |   | 10.50.3.10        |   |
 |   +-------------------+   |        |   +-------------------+   |
 |                           |        |                           |
-| package >  <><>  +-------------------------+ <> <> < package   |
-|   sent           | lab-router-2            |         recived   |
+| packet >  <><>  +-------------------------+ <> <> < packet   |
+|   sent           | lab-router-2            |         received   |
 |    from shell-1  |                         |                   |
 |                  | net_2: 10.50.2.3        |                   |
-+------------------| net_2: 10.50.3.2        |--------------------+
++------------------| net_3: 10.50.3.2        |--------------------+
                    +-------------------------+
 ```
 
@@ -501,17 +554,25 @@ The full path has not been configured yet.
 
 ---
 
+## Next Step
+
+We now know the connected routes on the source and routers.
+
+Next, test connectivity before adding custom routes so we can observe the failure state.
+
+---
+
 # Part 3: Prove the Path Is Broken
 
 ## Task 6: Ping Before Adding Routes
 
-First log into the shell-1
+First, enter `shell-1`.
 ```bash
 bash scripts/compose-stage.sh 05b exec shell-1 sh
 ```
 
 
-Next we try to reach shell-2
+Next, try to reach `shell-2`.
 ```bash
 ping -c 2 10.50.2.10
 ```
@@ -522,10 +583,10 @@ ping -c 2 10.50.2.10
 ```
 The failure is expected.
 
-Packets transmitted from shell-1 to shell-2 are being dropped 
+The ping fails because `shell-1` has not yet been told to use `lab-router-1` for `net_2`.
 
-Next we investgate why by asking where are the packets sent 
-from inside the shell-1 container we will get the route
+Next, investigate where Linux is currently sending those packets. 
+From inside `shell-1`, inspect the selected route:
 
 ```bash
 ip route get 10.50.2.10
@@ -536,10 +597,11 @@ ip route get 10.50.2.10
     cache
 ```
 
-What we see when we run the route command is packets are being sent to the default gateway (10.50.1.1)
-but the default gateway does not have a way to reach shell2-2 as it is not ont he net_2 network
+The route lookup shows that packets are currently sent to Docker's default gateway (`10.50.1.1`).
 
-To close shell
+That is not the custom routing path we want for this lab.
+
+Exit the shell:
 ```bash
 exit
 ```
@@ -561,77 +623,164 @@ The source host must first know where to send the packet.
 
 ---
 
+## Next Step
+
+The ping failed because `shell-1` used Docker's default gateway instead of our custom router.
+
+Next, add a more specific route so `shell-1` uses `lab-router-1`.
+
+---
+
 # Part 4: Teach `shell-1` Its First Next Hop
 
-Now we will add a new route 
+Now we will add a new route.
 
 ## Task 7: Add the Source Route
-we have learned that lab-router-1 is reacahable from shell-1 
-and also reachable from shell-2 and lastly it can forward packets from shell-1 
-to shell-2
+We have learned that `lab-router-1` is directly reachable from `shell-1` and is also directly connected to `net_2`.
+
+With IPv4 forwarding enabled, it can act as the Layer-3 path between the two networks.
 
 `lab-router-1` is directly reachable from `shell-1`.
 
 Add:
-This commands add a route to the shell-1 container 
 
+This command adds a more specific route to the `shell-1` routing table. 
+
+First, confirm the current routing table.
+```bash
+bash scripts/compose-stage.sh 05b exec shell-1 ip route
+```
+```text
+default via 10.50.1.1 dev eth0
+10.50.1.0/24 dev eth0 proto kernel scope link src 10.50.1.10
+
+
+This shows the connected route plus Docker's default route.
+```
+
+
+Next, add the new route.
 
 
 ```bash
-bash scripts/compose-stage.sh 05b exec shell-1   ip route add 10.50.3.0/24 via 10.50.1.2
+bash scripts/compose-stage.sh 05b exec shell-1   ip route add 10.50.2.0/24 via 10.50.1.2
 ```
 
-Confirm:
+Confirm the new route was added:
 
 ```bash
 bash scripts/compose-stage.sh 05b exec shell-1 ip route
 ```
 
-Then:
+```text
+default via 10.50.1.1 dev eth0
+10.50.1.0/24 dev eth0 proto kernel scope link src 10.50.1.10
+*10.50.2.0/24 via 10.50.1.2 dev eth0 --> new route added
+```
 
+Then:
+Now ask Linux how it will reach `net_2` and confirm that the more specific route through `lab-router-1` wins over the default route.
 ```bash
-bash scripts/compose-stage.sh 05b exec shell-1   ip route get 10.50.3.10
+bash scripts/compose-stage.sh 05b exec shell-1   ip route get 10.50.2.10
 ```
 
 Expected:
 
 ```text
-10.50.3.10 via 10.50.1.2 ... src 10.50.1.10
+10.50.2.10 via 10.50.1.2 dev eth0 src 10.50.1.10 uid 0
 ```
 
 ### Key Observation
 
 `shell-1` does not need to know the full path.
 
-It only needs its next hop:
+For the current one-hop test, it only needs this next hop:
 
 ```text
-net_3 -> 10.50.1.2
+net_2 -> 10.50.1.2
 ```
+
+Later, we will add another specific route for `net_3` through the same local router.
+
+Right now, `shell-1` knows that `lab-router-1` is the next hop. 
+It does not need to know the full path.
+
+Now extend the idea.
+
+Suppose `shell-1` wants to reach `shell-3` on `net_3`.
+
+`shell-1` can send the packet to `lab-router-1`, but `lab-router-1` is not directly connected to `net_3`.
+
+Therefore, `lab-router-1` needs a static route that identifies `lab-router-2` as the next hop.
 
 ---
 
 ## Task 8: Test Again
 
 ```bash
-bash scripts/compose-stage.sh 05b exec shell-1   ping -c 2 10.50.3.10
+bash scripts/compose-stage.sh 05b exec shell-1   ping -c 2 10.50.2.10
 ```
 
 It should still fail.
 
 ### Question
 
-Why can the packet now leave `shell-1` but still fail?
+The forward path now works. Why can `ping` still fail?
 
 Inspect:
 
 ```bash
-bash scripts/compose-stage.sh 05b exec lab-router-1   ip route get 10.50.3.10
+bash scripts/compose-stage.sh 05b exec lab-router-1  ip route get 10.50.2.10
 ```
+
+You should see:
+```text
+10.50.2.10 dev eth1 src 10.50.2.2 uid 0
+```
+
+Meaning: the lab-router-1 has the route to shell-2 so why does it still fail?
+
+Answer 
+```text
+shell-1 ----> lab-router-1--------> shell-2
+
+but we will need shell-2 to send the return packets
+
+shell-2 ------> lab-router-1 --------> shell-1
+
+```
+
+so we fix this by adding the return route to shell-2
+
+```bash
+bash scripts/compose-stage.sh 05b exec shell-2  ip route add 10.50.1.0/24 via 10.50.2.2
+```
+---
+
+Next, test again.
+
+
+```bash
+bash scripts/compose-stage.sh 05b exec shell-1   ping -c 2 10.50.2.10
+```
+
+```text
+--- 10.50.2.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1019ms
+```
+Packets are now transmitted and replies are successfully received.
+
+
+## Next Step
+
+We have proved one-hop routing between `net_1` and `net_2`, including the return path.
+
+Next, extend the route to `net_3`, which requires a second router and introduces multi-hop routing.
 
 ---
 
 # Part 5: Teach Router 1 the Next Hop
+
 
 ## Task 9: Choose the Correct Next Hop
 
@@ -648,8 +797,41 @@ Correct answer:
 ```text
 10.50.2.3
 ```
+Now add a route on `lab-router-1` for `net_3`.
+
+`lab-router-1` is not directly connected to `net_3`.
+
+`lab-router-2` is connected to both `net_2` and `net_3`, so `lab-router-2` is the correct next hop.
 
 Add:
+
+
+```text
++---------------------------+        +---------------------------+        +---------------------------+
+| net_1                     |        | net_2                     |        | net_3                     |
+| 10.50.1.0/24              |        | 10.50.2.0/24              |        | 10.50.3.0/24              |
+|                           |        |                           |        |                           |
+|   +-------------------+   |        |   +-------------------+   |        |   +-------------------+   |
+|   | shell-1           |   |        |   | shell-2           |   |        |   | shell-3           |   |
+|   | 10.50.1.10        |   |        |   | 10.50.2.10        |   |        |   | 10.50.3.10        |   |
+|   +-------------------+   |        |   +-------------------+   |        |   +-------------------+   |
+|                           |        |                           |        |                           |
+|                  +-------------------------+          +-------------------------+                   |
+|                  | lab-router-1            |          | lab-router-2            |                   |
+|                  |                         |          |                         |                   |
+|                  | net_1: 10.50.1.2       |          | net_2: 10.50.2.3         |                   |
++------------------| net_2: 10.50.2.2       |----------| net_3: 10.50.3.2         |------------------+
+                   +-------------------------+          +-------------------------+
+```
+
+From the diagram above, traffic from `shell-1` to `shell-3` must cross two routers:
+
+```text
+shell-1 -> lab-router-1 -> lab-router-2 -> shell-3
+```
+
+`lab-router-1` is hop 1 and `lab-router-2` is hop 2.
+
 
 ```bash
 bash scripts/compose-stage.sh 05b exec lab-router-1   ip route add 10.50.3.0/24 via 10.50.2.3
@@ -664,6 +846,9 @@ bash scripts/compose-stage.sh 05b exec lab-router-1 ip route
 ---
 
 ## Task 10: Confirm IPv4 Forwarding
+
+Remember: `net.ipv4.ip_forward=1` allows the Linux kernel to forward IPv4 packets between interfaces.
+Confirm that this setting is enabled on both `lab-router-1` and `lab-router-2`.
 
 ```bash
 bash scripts/compose-stage.sh 05b exec lab-router-1   sysctl net.ipv4.ip_forward
@@ -687,7 +872,37 @@ packet forwarding enabled
 
 ---
 
+## Next Step
+
+`lab-router-1` now knows that `lab-router-2` is the next hop for `net_3`.
+
+Next, follow the complete forward path from `shell-1` toward `shell-3`.
+
+---
+
 # Part 6: Follow the Forward Path
+
+Before testing the full path, `shell-1` still needs a specific route for `net_3`.
+
+Add:
+
+```bash
+bash scripts/compose-stage.sh 05b exec shell-1 \
+  ip route add 10.50.3.0/24 via 10.50.1.2
+```
+
+Confirm the selected next hop:
+
+```bash
+bash scripts/compose-stage.sh 05b exec shell-1 \
+  ip route get 10.50.3.10
+```
+
+Expected:
+
+```text
+10.50.3.10 via 10.50.1.2 dev eth0 src 10.50.1.10
+```
 
 The intended path is now:
 
@@ -721,15 +936,38 @@ The request can now reach the destination, but the reply needs its own route.
 
 ---
 
+## Next Step
+
+The forward path can now reach `shell-3`, but end-to-end communication still requires a return path.
+
+Next, configure the reverse path from `shell-3` back to `shell-1`.
+
+---
+
 # Part 7: Build the Return Path
 
 ## Task 11: Configure `shell-3`
+
+`shell-3` is on `net_3`.
+
+The forward path can now reach `shell-3`, but `shell-3` still needs to know how to return traffic to `net_1`.
+
+Because `lab-router-2` is directly reachable from `shell-3` at `10.50.3.2`, it will be the next hop for the return path.
+
 
 Inspect:
 
 ```bash
 bash scripts/compose-stage.sh 05b exec shell-3 ip route
 ```
+
+```text
+default via 10.50.3.1 dev eth0
+10.50.3.0/24 dev eth0 proto kernel scope link src 10.50.3.10
+```
+This shows that `shell-3` currently has its connected route plus Docker's default route.
+
+
 
 ### Prediction
 
@@ -740,15 +978,43 @@ lab-router-2 = 10.50.3.2
 lab-router-3 = 10.50.3.3
 ```
 
-Add:
+Enter `shell-3`:
 
 ```bash
-bash scripts/compose-stage.sh 05b exec shell-3   ip route add 10.50.1.0/24 via 10.50.3.2
+bash scripts/compose-stage.sh 05b exec shell-3  sh
 ```
 
+Next, add the route:
+```bash
+ip route add 10.50.1.0/24 via 10.50.3.2
+```
+This route tells `shell-3` that traffic for `net_1` should be sent to `lab-router-2` at `10.50.3.2`.
+
+Confirm that the route exists:
+```bash
+ip route 
+```
+You should see:
+
+```text
+default via 10.50.3.1 dev eth0
+10.50.1.0/24 via 10.50.3.2 dev eth0
+==> 10.50.3.0/24 dev eth0 proto kernel scope link src 10.50.3.10
+```
+
+Exit the container:
+```bash
+exit
+```
 ---
 
 ## Task 12: Configure `lab-router-2`
+
+We configured `lab-router-1` to send packets for `net_3` to `lab-router-2`.
+
+`lab-router-2` is already directly connected to `net_3`, so it does not need a static route to reach `shell-3`.
+
+What it still needs is a return route to `net_1`.
 
 Add:
 
@@ -776,6 +1042,14 @@ shell-1
 
 ---
 
+## Next Step
+
+Both forward and return paths are now configured.
+
+Next, verify that the full route works in both directions.
+
+---
+
 # Part 8: Prove End-to-End Connectivity
 
 ## Task 13: Ping Again
@@ -797,6 +1071,203 @@ forward path
 +
 return path
 ```
+
+---
+
+## Completed Route Summary: `shell-1` to `shell-3`
+
+At this point, four manually added static routes make the complete path work.
+
+> These commands summarize the final configuration. If you already completed the previous tasks, do not run them again with `ip route add`, because the routes already exist.
+
+### Forward Path
+
+On `shell-1`:
+
+```bash
+bash scripts/compose-stage.sh 05b exec shell-1 \
+  ip route add 10.50.3.0/24 via 10.50.1.2
+```
+
+This means:
+
+```text
+destination: net_3
+next hop:    lab-router-1
+             10.50.1.2
+```
+
+On `lab-router-1`:
+
+```bash
+bash scripts/compose-stage.sh 05b exec lab-router-1 \
+  ip route add 10.50.3.0/24 via 10.50.2.3
+```
+
+This means:
+
+```text
+destination: net_3
+next hop:    lab-router-2
+             10.50.2.3
+```
+
+`lab-router-2` does not need a static route to `net_3` because:
+
+```text
+10.50.3.0/24
+```
+
+is directly connected to it.
+
+The forward path is therefore:
+
+```text
+shell-1
+10.50.1.10
+     |
+     | net_3 via 10.50.1.2
+     v
+lab-router-1
+10.50.1.2 / 10.50.2.2
+     |
+     | net_3 via 10.50.2.3
+     v
+lab-router-2
+10.50.2.3 / 10.50.3.2
+     |
+     | net_3 directly connected
+     v
+shell-3
+10.50.3.10
+```
+
+### Return Path
+
+On `shell-3`:
+
+```bash
+bash scripts/compose-stage.sh 05b exec shell-3 \
+  ip route add 10.50.1.0/24 via 10.50.3.2
+```
+
+This means:
+
+```text
+destination: net_1
+next hop:    lab-router-2
+             10.50.3.2
+```
+
+On `lab-router-2`:
+
+```bash
+bash scripts/compose-stage.sh 05b exec lab-router-2 \
+  ip route add 10.50.1.0/24 via 10.50.2.2
+```
+
+This means:
+
+```text
+destination: net_1
+next hop:    lab-router-1
+             10.50.2.2
+```
+
+`lab-router-1` does not need a static route to `net_1` because `net_1` is directly connected.
+
+The return path is:
+
+```text
+shell-3
+10.50.3.10
+     |
+     | net_1 via 10.50.3.2
+     v
+lab-router-2
+10.50.3.2 / 10.50.2.3
+     |
+     | net_1 via 10.50.2.2
+     v
+lab-router-1
+10.50.2.2 / 10.50.1.2
+     |
+     | net_1 directly connected
+     v
+shell-1
+10.50.1.10
+```
+
+### Final Connectivity Test
+
+Run:
+
+```bash
+bash scripts/compose-stage.sh 05b exec shell-1 \
+  ping -c 3 10.50.3.10
+```
+
+Expected:
+
+```text
+3 packets transmitted, 3 packets received, 0% packet loss
+```
+
+This proves that both the forward path and return path are complete.
+
+### Route Summary
+
+```text
+FORWARD
+
+shell-1
+10.50.3.0/24 via 10.50.1.2
+        |
+        v
+router-1
+10.50.3.0/24 via 10.50.2.3
+        |
+        v
+router-2
+10.50.3.0/24 directly connected
+        |
+        v
+shell-3
+
+
+RETURN
+
+shell-3
+10.50.1.0/24 via 10.50.3.2
+        |
+        v
+router-2
+10.50.1.0/24 via 10.50.2.2
+        |
+        v
+router-1
+10.50.1.0/24 directly connected
+        |
+        v
+shell-1
+```
+
+The important lesson is:
+
+```text
+A node does not need to know the complete path.
+
+It only needs to know the correct next hop for the destination.
+```
+
+---
+
+
+## Next Step
+
+The ping now succeeds and proves reachability.
+
+Next, use `traceroute` to make the intermediate router hops visible.
 
 ---
 
@@ -832,6 +1303,14 @@ two routers?
 ### Key Lesson
 
 Each node only needs enough information to choose its own next hop.
+
+---
+
+## Next Step
+
+We have observed a two-hop path.
+
+Next, examine a middle network where a host can choose between two different routers.
 
 ---
 
@@ -875,7 +1354,15 @@ You should now see different next hops for different destination networks.
 
 ---
 
-# Part 11: Extend the Chain to `shell-4`
+## Next Step
+
+`shell-3` can now select different routers for different destination networks.
+
+Next, extend the same reasoning across all three routers to reach `shell-4`.
+
+---
+
+# Part 11: Challenge — Complete the Full Chain
 
 Your target is:
 
@@ -914,6 +1401,14 @@ which directly reachable router is the correct next hop?
 
 ---
 
+## Next Step
+
+The complete chain can now be built manually.
+
+Next, remove one route and observe how a single missing forwarding decision breaks the end-to-end path.
+
+---
+
 # Part 12: Break It
 
 Once `shell-1 -> shell-3` works, delete the transit route:
@@ -945,6 +1440,14 @@ complete end-to-end route
 
 ---
 
+## Next Step
+
+The path is intentionally broken.
+
+Next, diagnose the failure hop by hop before restoring the route.
+
+---
+
 # Part 13: Diagnose Before Fixing
 
 Walk the path:
@@ -966,6 +1469,14 @@ bash scripts/compose-stage.sh 05b exec lab-router-1   ip route add 10.50.3.0/24 
 ```
 
 Then retest.
+
+---
+
+## Next Step
+
+The manual path has been restored and diagnosed successfully.
+
+Next, automate the known-good routes so the topology can be recreated consistently.
 
 ---
 
@@ -1058,6 +1569,186 @@ Answer these without looking at your final route tables:
 8. What does `traceroute` show that `ping` does not?
 9. Why does each router only need its next hop rather than the complete path?
 10. Why should startup automation come after the manual routing exercise?
+
+---
+
+## Chapter Recap
+
+In Chapter 05, one multi-homed router was directly connected to every network it needed to reach.
+
+Chapter 05B introduced a different problem:
+
+```text
+the destination may be several routers away
+```
+
+That required us to build the route one hop at a time.
+
+We started with only the routes Linux creates automatically:
+
+```text
+connected interface
+        =
+connected route
+```
+
+We then observed that `shell-1` initially used Docker's default gateway because no more specific route existed.
+
+```text
+10.50.3.10
+    |
+    v
+default via 10.50.1.1
+```
+
+We then added a more specific route through our custom router:
+
+```text
+10.50.3.0/24 via 10.50.1.2
+```
+
+Then we discovered that configuring the source host was not enough.
+
+Every router along the path also had to know its own next hop.
+
+```text
+shell-1
+   |
+   v
+router-1
+   |
+   v
+router-2
+   |
+   v
+shell-3
+```
+
+Finally, we learned that reaching the destination is only half of end-to-end communication.
+
+The reply also needs a valid return path.
+
+```text
+forward path
++
+return path
+=
+working communication
+```
+
+The chapter therefore introduced four major routing ideas:
+
+```text
+1. connected route
+   Linux knows a subnet because an interface is attached to it.
+
+2. static route
+   We manually tell Linux how to reach a remote subnet.
+
+3. next hop
+   A node only needs to know which directly reachable router receives the packet next.
+
+4. multi-hop routing
+   Each router makes its own routing decision until the packet reaches a directly connected destination.
+```
+
+The complete mental model is:
+
+```text
+destination IP
+      |
+      v
+routing-table lookup
+      |
+      v
+directly connected?
+   /       \
+ yes       no
+  |         |
+send       choose
+directly   next hop
+            |
+            v
+         next router
+            |
+            v
+        repeat lookup
+```
+
+By the end of the chapter, the learner has moved from:
+
+```text
+one router connecting two networks
+```
+
+to:
+
+```text
+multiple routers
++
+multiple next-hop decisions
++
+forward and return paths
++
+traceroute
++
+route failure diagnosis
+```
+
+The next step is to apply the same reasoning independently to the full chain:
+
+```text
+shell-1
+   |
+   v
+router-1
+   |
+   v
+router-2
+   |
+   v
+router-3
+   |
+   v
+shell-4
+```
+
+At that point, the learner is no longer following a single prepared path. They are using the routing model developed throughout the chapter to construct one themselves.
+
+---
+
+## Conclusion
+
+A router does not need a complete map of every physical step a packet will take.
+
+It needs a routing table that answers:
+
+```text
+For this destination,
+where should I send the packet next?
+```
+
+Each node repeats that decision.
+
+That is what allows a packet to move through a chain of routers until it reaches a network that one router is directly connected to.
+
+For this lab:
+
+```text
+shell-1 knows router-1
+router-1 knows router-2
+router-2 knows net_3
+```
+
+and for the reply:
+
+```text
+shell-3 knows router-2
+router-2 knows router-1
+router-1 knows net_1
+```
+
+Together, those individual routing decisions create end-to-end connectivity.
 
 ---
 
