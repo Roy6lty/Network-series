@@ -4,8 +4,9 @@
 
 > **Runnable implementation:** use `README.md` and the numbered `chapters/`
 > directories for the cumulative lab, `GLOSSARY.md` for defined terminology,
-> and `COURSE_AUDIT.md` for the documented gaps and remediations. Each runnable
-> chapter includes a labeled `diagram.svg`, `diagram.png`, and editable
+> [`COMMAND_REFERENCE.md`](COMMAND_REFERENCE.md) for command lookup and deep
+> dives, and `COURSE_AUDIT.md` for the documented gaps and remediations. Each
+> runnable chapter includes a labeled `diagram.svg`, `diagram.png`, and editable
 > `diagram.dot` network view.
 
 ## Introduction
