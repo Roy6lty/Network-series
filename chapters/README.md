@@ -22,4 +22,6 @@ asset rather than silently changing an earlier lesson.
 Each chapter also contains `diagram.dot`, `diagram.svg`, and `diagram.png`.
 Read the diagram before running the checkpoint, then use the solid, dashed, and
 dotted edges to predict what should work and what should fail. Concept
-definitions and the complete notation are in `GLOSSARY.md`.
+definitions and the complete notation are in `GLOSSARY.md`. Use the repository
+level [`COMMAND_REFERENCE.md`](../COMMAND_REFERENCE.md) for command syntax,
+output interpretation, and troubleshooting recipes.
