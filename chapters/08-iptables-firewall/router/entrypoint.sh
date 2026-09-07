@@ -1,7 +1,9 @@
 #!/bin/sh
 set -eu
 
-sysctl -w net.ipv4.ip_forward=1 >/dev/null
+if ! sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1; then
+  [ "$(sysctl -n net.ipv4.ip_forward)" = "1" ]
+fi
 
 iptables -F
 iptables -t nat -F

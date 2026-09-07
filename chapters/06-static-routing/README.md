@@ -25,8 +25,8 @@ For example, `app-a-test` uses:
 This means:
 
 ```text
-traffic for 10.10.12.0/24
-        -> send to 10.10.11.2
+traffic for 10.10.12.0/24 network
+        -> send to 10.10.11.2 address
         -> use the local app_a interface
 ```
 
@@ -40,6 +40,7 @@ The address `10.10.11.2` belongs to `lab-router` on the same subnet as
 A next hop is the directly reachable device that receives a packet next.
 
 The next hop must be reachable on the sender's local network.
+For a container to be able to reach a router there must be on the same network
 
 For `app-a-test`:
 
@@ -55,7 +56,10 @@ lab-router
 
 This is a valid next hop.
 
-The address `10.10.12.2` is the router's address on a different subnet. It is
+The address `10.10.12.2` is the router's address on a different subnet.
+As the router has a different ip adress in each subnet
+once the router get attached to a subnet it it given an ip address within that subnet which it uses to commuincate with other hosts (containers) in that subnet
+sp beacuse the ip addresss is different in each subnet reaching the router on an ip not available within your subnet is
 not a valid next hop directly from `app-a-test` because `app-a-test` cannot
 reach that interface at Layer 2.
 
@@ -521,14 +525,14 @@ The exact output may also include `proto kernel` and other fields.
 At this point, `app-a-test` knows:
 
 ```text
-10.10.11.0/24 is local
+10.10.11.0/24 is local subnet
 10.10.11.1 is the Docker default gateway
 ```
 
 It does not yet have a specific route for:
 
 ```text
-10.10.12.0/24
+10.10.12.0/24 (app-b-test network)
 ```
 
 ---
@@ -576,6 +580,13 @@ bash scripts/compose-stage.sh 05 exec app-a-test \
 The failure is expected because the client has not been given a route through
 the lab router.
 
+```text
+--- 10.10.12.10 ping statistics ---
+2 packets transmitted, 0 packets received, 100% packet loss
+```
+
+2 packets transmitted and none received
+
 The important distinction is:
 
 ```text
@@ -583,6 +594,13 @@ lab-router exists
         !=
 app-a-test knows to use lab-router
 ```
+
+The issue is that `lab-router` exists on the network for `app-a-test`, but the
+client does not know to send packets destined for other networks to the router.
+
+Remember that the router is connected to other networks and can forward packets
+when IPv4 forwarding is enabled. It can transport packets across the networks
+to which it is connected.
 
 ---
 
@@ -598,6 +616,8 @@ bash scripts/compose-stage.sh 06 up -d --build
 
 The Chapter 06 overlay changes the command for each diagnostic service. Each
 service now runs its route setup before `sleep infinity`.
+Each service is rebuilt with the routing rules added to direct packets to
+their destinations
 
 Confirm the services again:
 

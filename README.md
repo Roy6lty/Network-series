@@ -7,7 +7,9 @@ chapter files in order, so chapter 10 includes everything introduced in
 chapters 1 through 9.
 
 Start with [`GLOSSARY.md`](GLOSSARY.md) for the lab's routing, firewall, DNS,
-NAT, and replication vocabulary. The full audit and its remediations are in
+NAT, and replication vocabulary. Use the
+[`COMMAND_REFERENCE.md`](COMMAND_REFERENCE.md) for quick command lookup and
+deeper command explanations. The full audit and its remediations are in
 [`COURSE_AUDIT.md`](COURSE_AUDIT.md).
 
 ## Introduction
@@ -58,8 +60,18 @@ bash scripts/compose-stage.sh 01 ps
 bash scripts/compose-stage.sh 01 down
 ```
 
-Replace `01` with any chapter from `01` through `17`. The runner always loads
-all earlier chapter files before the requested chapter.
+Replace `01` with any numbered chapter from `01` through `17`. The runner loads
+all earlier numbered chapter files before the requested chapter. Chapter `05b`
+is an alternate, standalone router-chain lab and is not combined with Chapter
+05's six-network topology.
+
+For the alternate Chapter 05B lab:
+
+```bash
+bash scripts/compose-stage.sh 05b up -d --build
+bash scripts/compose-stage.sh 05b ps
+bash scripts/compose-stage.sh 05b down
+```
 
 For the final stack:
 
@@ -86,6 +98,7 @@ bash scripts/compose-stage.sh 17 down -v
 | [03 Network namespaces](chapters/03-network-namespaces/) | Interfaces, routes, and neighbors | Namespace inspection |
 | [04 Linux capabilities](chapters/04-capabilities/) | `CAP_NET_ADMIN` and reusable lab tools | Privileged network operations |
 | [05 Router container](chapters/05-router-container/) | Multi-homed forwarding node | IPv4 forwarding |
+| [05B Routed network chain](chapters/05b-muliti-router/) | Three two-interface routers across four networks | Multi-hop forwarding |
 | [06 Static routing](chapters/06-static-routing/) | Remote subnet next hops and return paths | Routed connectivity |
 | [07 Packet tracing](chapters/07-packet-tracing/) | `tcpdump` observations | Ingress and egress evidence |
 | [08 Stateful firewalling](chapters/08-iptables-firewall/) | `iptables`, conntrack, port segmentation | Default-deny forwarding |
