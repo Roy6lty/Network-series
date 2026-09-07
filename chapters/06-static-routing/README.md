@@ -2,493 +2,362 @@
 
 ![Chapter 06 forward and return routes](diagram.svg)
 
-## Key Concepts
-
-### What Is a Static Route?
-
-A static route is a route that is explicitly configured instead of being
-learned from a routing protocol.
-
-It tells Linux:
-
-```text
-for this destination network,
-send the packet to this next hop
-```
-
-For example, `app-a-test` uses:
-
-```text
-10.10.12.0/24 via 10.10.11.2
-```
-
-This means:
-
-```text
-traffic for 10.10.12.0/24 network
-        -> send to 10.10.11.2 address
-        -> use the local app_a interface
-```
-
-The address `10.10.11.2` belongs to `lab-router` on the same subnet as
-`app-a-test`.
-
----
-
-### What Is a Next Hop?
-
-A next hop is the directly reachable device that receives a packet next.
-
-The next hop must be reachable on the sender's local network.
-For a container to be able to reach a router there must be on the same network
-
-For `app-a-test`:
-
-```text
-app-a-test
-10.10.11.10
-        |
-        | same app_a subnet
-        v
-lab-router
-10.10.11.2
-```
-
-This is a valid next hop.
-
-The address `10.10.12.2` is the router's address on a different subnet.
-As the router has a different ip adress in each subnet
-once the router get attached to a subnet it it given an ip address within that subnet which it uses to commuincate with other hosts (containers) in that subnet
-sp beacuse the ip addresss is different in each subnet reaching the router on an ip not available within your subnet is
-not a valid next hop directly from `app-a-test` because `app-a-test` cannot
-reach that interface at Layer 2.
-
-So:
-
-```text
-valid:
-10.10.12.0/24 via 10.10.11.2
-
-invalid from app-a-test:
-10.10.12.0/24 via 10.10.12.2
-```
-
-The next hop is always selected from the sender's local network.
-
----
-
-### Forward and Return Paths
-
-A packet needs a route from the source to the destination:
-
-```text
-forward path:
-app-a-test -> lab-router -> app-b-test
-```
-
-The response needs a route in the opposite direction:
-
-```text
-return path:
-app-b-test -> lab-router -> app-a-test
-```
-
-Both paths are required for a complete connection.
-
-For example, the request from `app-a-test` to `app-b-test` uses:
-
-```text
-10.10.12.0/24 via 10.10.11.2
-```
-
-The reply from `app-b-test` uses:
-
-```text
-10.10.11.0/24 via 10.10.12.2
-```
-
-The two routes use different router interfaces because each endpoint sends to
-the router address on its own local subnet.
-
----
-
-### Most-Specific Route Wins
-
-Linux compares a destination with the routes in its routing table.
-
-It chooses the most-specific matching route before considering a broader route
-or the default route.
-
-For `app-a-test`, the table may contain:
-
-```text
-10.10.12.0/24 via 10.10.11.2
-default via 10.10.11.1
-```
-
-When the destination is `10.10.12.10`, the `/24` route wins over the default
-route:
-
-```text
-10.10.12.10
-        |
-        v
-10.10.12.0/24 via 10.10.11.2
-```
-
-The Docker gateway `10.10.11.1` is used only when no more-specific route
-matches.
-
----
-
-### Runtime Route State
-
-Routes added with `ip route add` or `ip route replace` live in the container's
-network namespace.
-
-They are runtime state:
-
-```text
-container recreated
-        |
-        v
-network namespace recreated
-        |
-        v
-runtime route disappears
-```
-
-Chapter 06 puts the route commands in the Compose service command so the routes
-are reapplied when each container starts.
-
-This is not the same as storing a route in the host operating system.
-
----
-
 ## Goal
 
-Teach the six diagnostic containers how to reach remote lab subnets through the
-multi-homed `lab-router`.
+Apply the routing model from Chapter 05B to the main six-network lab.
 
-By the end of this chapter you should be able to:
+Chapter 05B taught routing one hop at a time across several routers. Chapter 06
+returns to the standard public, application, and database topology, where one
+multi-homed router is connected directly to all six lab networks.
 
-- identify a missing remote route;
-- choose a valid local next hop;
-- explain why a default Docker gateway is not the lab router;
+By the end of this chapter, you should be able to:
+
+- identify the correct next hop for a remote subnet;
+- explain why the next hop must be reachable on the sender's local network;
+- distinguish Docker's bridge gateway (`.1`) from the lab router (`.2`);
+- explain why the router needs no static routes for directly connected lab subnets;
+- build and test a forward path and return path manually;
+- derive the general routing rule for all six endpoint containers;
 - inspect route selection with `ip route get`;
-- distinguish a forward route from a return route;
-- test routed connectivity across the lab subnets;
-- understand why `ip route replace` is used at container startup;
-- diagnose a failure caused by a missing route.
+- explain why `ip route replace` is used in the Chapter 06 Compose overlay;
+- explain how the Chapter 06 Compose file modifies existing services rather than adding new ones;
+- verify routing across public, application, and database networks;
+- break one route, diagnose the failure, and recover it.
 
 ---
 
-## Chapter Progression
+## From Chapter 05B
 
-Chapter 05 introduced a router connected to all six networks.
-
-At the end of Chapter 05, the router knows every connected subnet, but the
-client containers still know only about their own local networks.
+Chapter 05B used this topology:
 
 ```text
-Chapter 05
-router exists
-        +
-clients have local routes only
-        |
-        v
-Chapter 06
-clients receive remote static routes
-        +
-forward path
-        +
-return path
-        +
-end-to-end connectivity
+shell-1
+   |
+   v
+router-1
+   |
+   v
+router-2
+   |
+   v
+router-3
+   |
+   v
+shell-4
 ```
 
-The optional Chapter 05B lesson explores the same routing idea with a chain of
-three routers. This Chapter 06 lesson returns to the standard six-network lab
-with one router attached to every subnet.
+No single router knew every network.
 
----
+That meant each router needed to answer:
 
-## What This Stage Adds
+```text
+For this destination,
+which directly reachable router should receive the packet next?
+```
 
-This chapter adds no new containers or networks.
+Chapter 06 uses the same routing logic, but the topology is simpler.
 
-The existing six diagnostic containers receive startup commands that install
-routes to every remote subnet.
-
-The router remains:
+There is now one router:
 
 ```text
 lab-router
-10.10.1.2    on public_a
-10.10.2.2    on public_b
-10.10.11.2   on app_a
-10.10.12.2   on app_b
-10.10.21.2   on db_a
-10.10.22.2   on db_b
 ```
 
-The six endpoint containers remain:
+and that router is directly connected to all six lab networks.
+
+So the problem changes from:
+
+```text
+Which router should forward the packet next?
+```
+
+to:
+
+```text
+Which local interface of lab-router should this endpoint use as its next hop?
+```
+
+The routing rule is still the same:
+
+```text
+the next hop must be directly reachable
+from the sender's local network
+```
+
+---
+
+# Main Lab Topology
+
+The six Docker networks are:
+
+```text
+public_a   10.10.1.0/24
+public_b   10.10.2.0/24
+
+app_a      10.10.11.0/24
+app_b      10.10.12.0/24
+
+db_a       10.10.21.0/24
+db_b       10.10.22.0/24
+```
+
+The endpoint containers are:
 
 ```text
 public-a-test   10.10.1.10
 public-b-test   10.10.2.10
+
 app-a-test      10.10.11.10
 app-b-test      10.10.12.10
+
 db-a-test       10.10.21.10
 db-b-test       10.10.22.10
 ```
 
-The topology is:
+The router is attached to all six networks:
 
 ```text
-                         lab-router
-                  one interface per subnet
-                              |
-       +----------------------+----------------------+
-       |                      |                      |
-   public_a                app_a                  db_a
- 10.10.1.0/24          10.10.11.0/24          10.10.21.0/24
-       |                      |                      |
-public-a-test           app-a-test               db-a-test
- 10.10.1.10             10.10.11.10              10.10.21.10
+                            lab-router
 
-       |                      |                      |
-       +----------------------+----------------------+
-                              |
-                         lab-router
-                  one interface per subnet
-                              |
-       +----------------------+----------------------+
-       |                      |                      |
-   public_b                app_b                  db_b
- 10.10.2.0/24           10.10.12.0/24          10.10.22.0/24
-       |                      |                      |
-public-b-test           app-b-test               db-b-test
- 10.10.2.10             10.10.12.10              10.10.22.10
+                    public_a  10.10.1.2
+                    public_b  10.10.2.2
+                    app_a     10.10.11.2
+                    app_b     10.10.12.2
+                    db_a      10.10.21.2
+                    db_b      10.10.22.2
 ```
 
-The router is one container with six interfaces. A client must still be taught
-which local router interface to use for each remote destination.
+A simplified relationship is:
+
+```text
+                     public-a-test
+                      10.10.1.10
+                           |
+                       public_a
+                      10.10.1.0/24
+                           |
+                       10.10.1.2
+                           |
+                           |
+public-b-test ---- 10.10.2.2
+                           \
+                            \
+app-a-test ------ 10.10.11.2 \
+                              +----------------+
+app-b-test ------ 10.10.12.2--|   lab-router   |
+                              | ip_forward = 1 |
+db-a-test ------- 10.10.21.2--|                |
+                              +----------------+
+db-b-test ------- 10.10.22.2 /
+```
+
+Another way to think about it:
+
+```text
+public_a --------\
+public_b ---------\
+app_a -------------\
+app_b --------------- lab-router
+db_a ---------------/
+db_b --------------/
+```
+
+The important point is that `lab-router` is one container with six interfaces.
 
 ---
 
-## Important Lab Rule
+# Key Concept 1: Connected Routes on the Router
 
-Chapter 05B asks the learner to add routes manually. Chapter 06 intentionally
-automates the known-good routes in the Compose overlay after the routing model
-has been introduced.
+When Linux assigns an IP address and subnet to an interface, Linux automatically
+creates a connected route for that subnet.
 
-The route commands use:
-
-```bash
-ip route replace DESTINATION via NEXT_HOP
-```
-
-`replace` is used instead of `add` because it is safe to run when the route is
-already present:
+For example, because `lab-router` has:
 
 ```text
-route missing
-        -> create it
-
-route already exists
-        -> update it without creating a duplicate
+10.10.11.2/24
 ```
 
-The command runs before `sleep infinity`, so the container stays alive after
-the route setup completes.
+on its `app_a` interface, Linux automatically knows:
+
+```text
+10.10.11.0/24 is directly connected
+```
+
+The router should therefore have connected routes similar to:
+
+```text
+10.10.1.0/24   dev <interface> src 10.10.1.2
+10.10.2.0/24   dev <interface> src 10.10.2.2
+10.10.11.0/24  dev <interface> src 10.10.11.2
+10.10.12.0/24  dev <interface> src 10.10.12.2
+10.10.21.0/24  dev <interface> src 10.10.21.2
+10.10.22.0/24  dev <interface> src 10.10.22.2
+```
+
+So:
+
+```text
+lab-router does not need static routes
+for the six original lab networks
+```
+
+because all six are directly connected.
+
+The endpoints are different.
+
+Each endpoint is connected to only one lab subnet, so each endpoint needs help
+reaching the other five.
 
 ---
 
-## Route Plan
+# Key Concept 2: Docker Gateway `.1` vs Lab Router `.2`
 
-Each endpoint uses the router address on its own subnet as the next hop.
+Docker normally gives each bridge network a gateway address ending in `.1`.
 
-### `public-a-test`
-
-Local address:
+For example:
 
 ```text
-10.10.1.10
+app_a
+
+Docker bridge gateway = 10.10.11.1
+lab-router             = 10.10.11.2
+app-a-test             = 10.10.11.10
 ```
 
-Router next hop:
+These are not the same device.
 
 ```text
-10.10.1.2
+10.10.11.1
+=
+Docker-managed bridge gateway
+
+10.10.11.2
+=
+our custom lab-router
 ```
 
-Remote routes:
+Before Chapter 06, `app-a-test` may have:
 
 ```text
-10.10.2.0/24 via 10.10.1.2
-10.10.11.0/24 via 10.10.1.2
-10.10.12.0/24 via 10.10.1.2
-10.10.21.0/24 via 10.10.1.2
-10.10.22.0/24 via 10.10.1.2
+default via 10.10.11.1
+10.10.11.0/24 dev eth0
 ```
 
-### `public-b-test`
-
-Local address:
+If Linux does not have a more-specific route for a destination such as
+`10.10.12.10`, the default route may be selected:
 
 ```text
-10.10.2.10
+10.10.12.10
+        |
+        v
+default via 10.10.11.1
 ```
 
-Router next hop:
+That does not prove `10.10.12.10` is reachable.
+
+It only proves which route Linux selected.
+
+The lab needs a more-specific route through our router:
 
 ```text
-10.10.2.2
+10.10.12.0/24 via 10.10.11.2
 ```
 
-Remote routes:
+Then `/24` wins over the default `/0`.
+
+---
+
+# Key Concept 3: The Next Hop Must Be Local
+
+Suppose:
 
 ```text
-10.10.1.0/24 via 10.10.2.2
-10.10.11.0/24 via 10.10.2.2
-10.10.12.0/24 via 10.10.2.2
-10.10.21.0/24 via 10.10.2.2
-10.10.22.0/24 via 10.10.2.2
+source      = app-a-test
+source IP   = 10.10.11.10
+destination = app-b-test
+destination = 10.10.12.10
 ```
 
-### `app-a-test`
-
-Local address:
+The router has two relevant addresses:
 
 ```text
-10.10.11.10
+10.10.11.2 on app_a
+10.10.12.2 on app_b
 ```
 
-Router next hop:
+Which address should `app-a-test` use as its next hop?
+
+```text
+A. 10.10.11.2
+B. 10.10.12.2
+```
+
+Correct:
 
 ```text
 10.10.11.2
 ```
 
-Remote routes:
+Why?
+
+Because `10.10.11.2` is directly reachable from `app-a-test`.
 
 ```text
-10.10.1.0/24 via 10.10.11.2
-10.10.2.0/24 via 10.10.11.2
+app-a-test
+10.10.11.10
+      |
+      | same subnet
+      v
+lab-router
+10.10.11.2
+```
+
+This is valid:
+
+```text
 10.10.12.0/24 via 10.10.11.2
-10.10.21.0/24 via 10.10.11.2
-10.10.22.0/24 via 10.10.11.2
 ```
 
-### `app-b-test`
-
-Local address:
+This is not a valid direct next hop from `app-a-test`:
 
 ```text
-10.10.12.10
+10.10.12.0/24 via 10.10.12.2
 ```
 
-Router next hop:
+because `10.10.12.2` is the router's address on a different subnet.
+
+The general rule is:
 
 ```text
-10.10.12.2
-```
+destination may be remote
 
-Remote routes:
+but
 
-```text
-10.10.1.0/24 via 10.10.12.2
-10.10.2.0/24 via 10.10.12.2
-10.10.11.0/24 via 10.10.12.2
-10.10.21.0/24 via 10.10.12.2
-10.10.22.0/24 via 10.10.12.2
-```
-
-### `db-a-test`
-
-Local address:
-
-```text
-10.10.21.10
-```
-
-Router next hop:
-
-```text
-10.10.21.2
-```
-
-Remote routes:
-
-```text
-10.10.1.0/24 via 10.10.21.2
-10.10.2.0/24 via 10.10.21.2
-10.10.11.0/24 via 10.10.21.2
-10.10.12.0/24 via 10.10.21.2
-10.10.22.0/24 via 10.10.21.2
-```
-
-### `db-b-test`
-
-Local address:
-
-```text
-10.10.22.10
-```
-
-Router next hop:
-
-```text
-10.10.22.2
-```
-
-Remote routes:
-
-```text
-10.10.1.0/24 via 10.10.22.2
-10.10.2.0/24 via 10.10.22.2
-10.10.11.0/24 via 10.10.22.2
-10.10.12.0/24 via 10.10.22.2
-10.10.21.0/24 via 10.10.22.2
+next hop must be locally reachable
 ```
 
 ---
 
-## Tasks
+# Part 1: Start With the Chapter 05 Baseline
 
-1. Start the Chapter 05 baseline and observe the missing client route.
-2. Apply the Chapter 06 overlay.
-3. Inspect the routes installed in `app-a-test`.
-4. Ask Linux which next hop it selects for `app-b-test`.
-5. Confirm the router is forwarding IPv4 packets.
-6. Test connectivity between application networks.
-7. Test connectivity between public and database networks.
-8. Inspect the return route on the destination container.
-9. Recreate a service and confirm its routes are reapplied.
-10. Delete a forward or return route and observe the failure.
+## Task 1: Start Chapter 05
 
----
+Chapter 05 gives us the six endpoint containers and the multi-homed router, but
+it does not yet install the endpoint static routes.
 
-## Checkpoint
-
-# Part 1: Observe the Chapter 05 Baseline
-
-## Task 1: Start the Previous Stage
-
-Start the standard Chapter 05 topology:
+Run:
 
 ```bash
 bash scripts/compose-stage.sh 05 up -d --build
 ```
 
-Confirm that the containers are running:
+Check the services:
 
 ```bash
 bash scripts/compose-stage.sh 05 ps
 ```
 
-The important services are:
+You should have:
 
 ```text
 public-a-test
@@ -500,137 +369,758 @@ db-b-test
 lab-router
 ```
 
-Chapter 05 provides the router and enables IPv4 forwarding, but it does not yet
-teach the clients about remote subnets.
+---
+
+## Task 2: Inspect the Router
+
+Inspect the router's addresses:
+
+```bash
+bash scripts/compose-stage.sh 05 exec lab-router ip -o -4 addr show
+```
+
+You should find addresses from all six subnets:
+
+```text
+10.10.1.2/24
+10.10.2.2/24
+10.10.11.2/24
+10.10.12.2/24
+10.10.21.2/24
+10.10.22.2/24
+```
+
+Now inspect the router's routes:
+
+```bash
+bash scripts/compose-stage.sh 05 exec lab-router ip route
+```
+
+You should find connected routes for all six networks.
+
+### Prediction
+
+Does `lab-router` need this command?
+
+```bash
+ip route add 10.10.12.0/24 via ...
+```
+
+Answer:
+
+```text
+No.
+```
+
+`10.10.12.0/24` is directly connected to the router because one of the router's
+interfaces already belongs to that subnet.
 
 ---
 
-## Task 2: Inspect `app-a-test` Before Static Routes
+## Task 3: Confirm IPv4 Forwarding
 
-Inspect its route table:
+Run:
+
+```bash
+bash scripts/compose-stage.sh 05 exec lab-router \
+  sysctl net.ipv4.ip_forward
+```
+
+Expected:
+
+```text
+net.ipv4.ip_forward = 1
+```
+
+Remember:
+
+```text
+multiple interfaces
+        !=
+forwarding automatically enabled
+```
+
+`ip_forward=1` allows the Linux kernel to forward packets received on one
+interface out another interface.
+
+---
+
+# Part 2: Inspect an Endpoint Before Static Routing
+
+We will use this first path:
+
+```text
+app-a-test
+10.10.11.10
+
+        ->
+
+app-b-test
+10.10.12.10
+```
+
+## Task 4: Inspect `app-a-test`
+
+Run:
 
 ```bash
 bash scripts/compose-stage.sh 05 exec app-a-test ip route
 ```
 
-You should see its directly connected network and Docker's default route:
+You should see something similar to:
 
 ```text
 default via 10.10.11.1 dev eth0
 10.10.11.0/24 dev eth0 scope link src 10.10.11.10
 ```
 
-The exact output may also include `proto kernel` and other fields.
-
-At this point, `app-a-test` knows:
+The important routes are:
 
 ```text
-10.10.11.0/24 is local subnet
-10.10.11.1 is the Docker default gateway
+10.10.11.0/24
+=
+local network
+
+default via 10.10.11.1
+=
+Docker bridge gateway
 ```
 
-It does not yet have a specific route for:
+There is no specific lab route yet for:
 
 ```text
-10.10.12.0/24 (app-b-test network)
+10.10.12.0/24
 ```
 
 ---
 
-## Task 3: Ask Linux for the Current Route
+## Task 5: Ask Linux What It Would Do
 
-Ask Linux how it would reach `app-b-test`:
+Run:
 
 ```bash
 bash scripts/compose-stage.sh 05 exec app-a-test \
   ip route get 10.10.12.10
 ```
 
-The result should use Docker's default gateway:
+You should see something similar to:
 
 ```text
 10.10.12.10 via 10.10.11.1 dev eth0 src 10.10.11.10
 ```
 
-The exact output may include `uid 0` or other kernel metadata.
-
-Breakdown:
+Meaning:
 
 ```text
 destination = 10.10.12.10
 next hop    = 10.10.11.1
 interface   = eth0
-source IP   = 10.10.11.10
+source      = 10.10.11.10
 ```
 
-The route lookup does not prove that the destination is reachable. It only
-shows the decision Linux would make with the current table.
+This is a routing decision.
+
+It is not proof of connectivity.
 
 ---
 
-## Task 4: Test the Baseline
+## Task 6: Test the Baseline
 
-Try to reach `app-b-test`:
+Run:
 
 ```bash
 bash scripts/compose-stage.sh 05 exec app-a-test \
   ping -c 2 10.10.12.10
 ```
 
-The failure is expected because the client has not been given a route through
-the lab router.
-
-```text
---- 10.10.12.10 ping statistics ---
-2 packets transmitted, 0 packets received, 100% packet loss
-```
-
-2 packets transmitted and none received
+The request should fail.
 
 The important distinction is:
 
 ```text
 lab-router exists
         !=
-app-a-test knows to use lab-router
+app-a-test is using lab-router
 ```
 
-The issue is that `lab-router` exists on the network for `app-a-test`, but the
-client does not know to send packets destined for other networks to the router.
-
-Remember that the router is connected to other networks and can forward packets
-when IPv4 forwarding is enabled. It can transport packets across the networks
-to which it is connected.
+The source still sends unmatched traffic toward Docker's `.1` gateway.
 
 ---
 
-# Part 2: Apply the Static-Routing Overlay
+# Part 3: Build One Route Manually
 
-## Task 5: Start Chapter 06
+Before letting Compose automate all routes, build one route yourself.
 
-Apply the Chapter 06 Compose overlay:
+This applies what Chapter 05B already taught.
+
+## Task 7: Choose the Source Next Hop
+
+Question:
+
+```text
+app-a-test is 10.10.11.10
+
+Which next hop should it use for 10.10.12.0/24?
+
+A. 10.10.11.1
+B. 10.10.11.2
+C. 10.10.12.2
+D. 10.10.12.10
+```
+
+Answer:
+
+```text
+B. 10.10.11.2
+```
+
+Because:
+
+```text
+10.10.11.2
+=
+lab-router on app-a-test's own subnet
+```
+
+Add the route:
+
+```bash
+bash scripts/compose-stage.sh 05 exec app-a-test \
+  ip route add 10.10.12.0/24 via 10.10.11.2
+```
+
+Confirm:
+
+```bash
+bash scripts/compose-stage.sh 05 exec app-a-test \
+  ip route get 10.10.12.10
+```
+
+Expected:
+
+```text
+10.10.12.10 via 10.10.11.2 dev eth0 src 10.10.11.10
+```
+
+The `/24` static route now wins over:
+
+```text
+default via 10.10.11.1
+```
+
+---
+
+## Task 8: Test Again
+
+Run:
+
+```bash
+bash scripts/compose-stage.sh 05 exec app-a-test \
+  ping -c 2 10.10.12.10
+```
+
+Prediction:
+
+```text
+The forward route is correct.
+
+Will ping definitely work?
+```
+
+Not yet.
+
+The request can now travel:
+
+```text
+app-a-test
+      |
+      v
+lab-router
+      |
+      v
+app-b-test
+```
+
+but the reply also needs a route back.
+
+---
+
+# Part 4: Build the Return Path
+
+## Task 9: Inspect `app-b-test`
+
+Run:
+
+```bash
+bash scripts/compose-stage.sh 05 exec app-b-test ip route
+```
+
+You should see:
+
+```text
+default via 10.10.12.1 dev eth0
+10.10.12.0/24 dev eth0 scope link src 10.10.12.10
+```
+
+There is no specific route back to:
+
+```text
+10.10.11.0/24
+```
+
+Question:
+
+```text
+Which local router address should app-b-test use?
+
+A. 10.10.11.2
+B. 10.10.12.2
+```
+
+Correct:
+
+```text
+10.10.12.2
+```
+
+Add:
+
+```bash
+bash scripts/compose-stage.sh 05 exec app-b-test \
+  ip route add 10.10.11.0/24 via 10.10.12.2
+```
+
+Now test again:
+
+```bash
+bash scripts/compose-stage.sh 05 exec app-a-test \
+  ping -c 2 10.10.12.10
+```
+
+Expected:
+
+```text
+2 packets transmitted, 2 packets received, 0% packet loss
+```
+
+The working path is:
+
+```text
+FORWARD
+
+app-a-test
+10.10.11.10
+      |
+      | 10.10.12.0/24 via 10.10.11.2
+      v
+lab-router
+      |
+      | 10.10.12.0/24 directly connected
+      v
+app-b-test
+10.10.12.10
+```
+
+and:
+
+```text
+RETURN
+
+app-b-test
+10.10.12.10
+      |
+      | 10.10.11.0/24 via 10.10.12.2
+      v
+lab-router
+      |
+      | 10.10.11.0/24 directly connected
+      v
+app-a-test
+10.10.11.10
+```
+
+---
+
+# Part 5: Derive the General Rule
+
+We have now proved one route manually.
+
+Look at the pattern.
+
+For `app-a-test`:
+
+```text
+local network = 10.10.11.0/24
+local router  = 10.10.11.2
+```
+
+So every other lab subnet can use:
+
+```text
+via 10.10.11.2
+```
+
+For example:
+
+```text
+10.10.1.0/24  via 10.10.11.2
+10.10.2.0/24  via 10.10.11.2
+10.10.12.0/24 via 10.10.11.2
+10.10.21.0/24 via 10.10.11.2
+10.10.22.0/24 via 10.10.11.2
+```
+
+The same pattern applies to every endpoint.
+
+## General Rule
+
+```text
+For each endpoint:
+
+1. keep the connected route for its own subnet;
+2. for every other lab subnet;
+3. use lab-router's .2 address on the endpoint's local subnet.
+```
+
+So:
+
+```text
+public-a-test
+local router = 10.10.1.2
+
+public-b-test
+local router = 10.10.2.2
+
+app-a-test
+local router = 10.10.11.2
+
+app-b-test
+local router = 10.10.12.2
+
+db-a-test
+local router = 10.10.21.2
+
+db-b-test
+local router = 10.10.22.2
+```
+
+---
+
+# Part 6: Route Plan for All Six Endpoints
+
+## `public-a-test`
+
+```text
+local IP     = 10.10.1.10
+local router = 10.10.1.2
+```
+
+Remote routes:
+
+```text
+10.10.2.0/24  via 10.10.1.2
+10.10.11.0/24 via 10.10.1.2
+10.10.12.0/24 via 10.10.1.2
+10.10.21.0/24 via 10.10.1.2
+10.10.22.0/24 via 10.10.1.2
+```
+
+## `public-b-test`
+
+```text
+local IP     = 10.10.2.10
+local router = 10.10.2.2
+```
+
+Remote routes:
+
+```text
+10.10.1.0/24  via 10.10.2.2
+10.10.11.0/24 via 10.10.2.2
+10.10.12.0/24 via 10.10.2.2
+10.10.21.0/24 via 10.10.2.2
+10.10.22.0/24 via 10.10.2.2
+```
+
+## `app-a-test`
+
+```text
+local IP     = 10.10.11.10
+local router = 10.10.11.2
+```
+
+Remote routes:
+
+```text
+10.10.1.0/24  via 10.10.11.2
+10.10.2.0/24  via 10.10.11.2
+10.10.12.0/24 via 10.10.11.2
+10.10.21.0/24 via 10.10.11.2
+10.10.22.0/24 via 10.10.11.2
+```
+
+## `app-b-test`
+
+```text
+local IP     = 10.10.12.10
+local router = 10.10.12.2
+```
+
+Remote routes:
+
+```text
+10.10.1.0/24  via 10.10.12.2
+10.10.2.0/24  via 10.10.12.2
+10.10.11.0/24 via 10.10.12.2
+10.10.21.0/24 via 10.10.12.2
+10.10.22.0/24 via 10.10.12.2
+```
+
+## `db-a-test`
+
+```text
+local IP     = 10.10.21.10
+local router = 10.10.21.2
+```
+
+Remote routes:
+
+```text
+10.10.1.0/24  via 10.10.21.2
+10.10.2.0/24  via 10.10.21.2
+10.10.11.0/24 via 10.10.21.2
+10.10.12.0/24 via 10.10.21.2
+10.10.22.0/24 via 10.10.21.2
+```
+
+## `db-b-test`
+
+```text
+local IP     = 10.10.22.10
+local router = 10.10.22.2
+```
+
+Remote routes:
+
+```text
+10.10.1.0/24  via 10.10.22.2
+10.10.2.0/24  via 10.10.22.2
+10.10.11.0/24 via 10.10.22.2
+10.10.12.0/24 via 10.10.22.2
+10.10.21.0/24 via 10.10.22.2
+```
+
+---
+
+# Part 7: Why Chapter 06 Uses a Compose Overlay
+
+We manually added routes to understand the rule.
+
+Those manual routes are runtime state.
+
+If the container is recreated:
+
+```text
+old container
+     |
+     v
+old network namespace removed
+     |
+     v
+manual route disappears
+```
+
+So Chapter 06 moves the known-good route commands into the service startup
+configuration.
+
+The Chapter 06 Compose file does not add new service names.
+
+It contains entries such as:
+
+```yaml
+services:
+  app-a-test:
+    command:
+      ...
+```
+
+The earlier chapters already define `app-a-test`.
+
+When the runner starts Chapter 06, it loads all numbered Compose files through
+Chapter 06:
+
+```text
+01
++
+02
++
+03
++
+04
++
+05
++
+06
+=
+one final merged Compose configuration
+```
+
+Conceptually:
+
+```text
+earlier chapter
+defines app-a-test
+
+        +
+
+Chapter 06
+overrides app-a-test.command
+
+        =
+
+same logical Compose service
+with new startup behavior
+```
+
+It is not:
+
+```text
+find an arbitrary already-running container
+and execute commands inside it
+```
+
+Instead:
+
+```text
+Compose resolves the merged service configuration
+        |
+        v
+service configuration changed
+        |
+        v
+container may be recreated
+        |
+        v
+new startup command runs
+        |
+        v
+routes are installed
+```
+
+You can inspect the resolved configuration with:
+
+```bash
+bash scripts/compose-stage.sh 06 config
+```
+
+To inspect only service names:
+
+```bash
+bash scripts/compose-stage.sh 06 config --services
+```
+
+---
+
+# Part 8: Why `ip route replace` Is Used
+
+During the manual lesson we used:
+
+```bash
+ip route add ...
+```
+
+because we wanted to see the route being created.
+
+Startup configuration uses:
+
+```bash
+ip route replace ...
+```
+
+because startup may happen repeatedly.
+
+`replace` behaves like:
+
+```text
+route missing
+    -> create it
+
+route already exists
+    -> update it
+```
+
+This makes it suitable for repeatable startup configuration.
+
+Example:
+
+```bash
+ip route replace 10.10.12.0/24 via 10.10.11.2
+```
+
+Important:
+
+```text
+replace
+!=
+persistent by itself
+```
+
+The route still lives in the container's network namespace.
+
+The reason it comes back after recreation is:
+
+```text
+container starts
+      |
+      v
+startup command runs again
+      |
+      v
+ip route replace ...
+```
+
+---
+
+# Part 9: Apply Chapter 06
+
+Before applying Chapter 06, remove the Chapter 05 baseline so the next start is
+easy to reason about:
+
+```bash
+bash scripts/compose-stage.sh 05 down
+```
+
+Now start Chapter 06:
 
 ```bash
 bash scripts/compose-stage.sh 06 up -d --build
 ```
 
-The Chapter 06 overlay changes the command for each diagnostic service. Each
-service now runs its route setup before `sleep infinity`.
-Each service is rebuilt with the routing rules added to direct packets to
-their destinations
-
-Confirm the services again:
+Check the services:
 
 ```bash
 bash scripts/compose-stage.sh 06 ps
 ```
 
-The topology still contains six endpoint networks, one endpoint per network,
-and the single multi-homed `lab-router`.
+The service set should still include:
+
+```text
+public-a-test
+public-b-test
+app-a-test
+app-b-test
+db-a-test
+db-b-test
+lab-router
+```
+
+No new service was introduced by Chapter 06.
 
 ---
 
-## Task 6: Inspect the New `app-a-test` Route Table
+# Part 10: Inspect the Automated Routes
+
+## Task 10: Inspect `app-a-test`
 
 Run:
 
@@ -638,839 +1128,615 @@ Run:
 bash scripts/compose-stage.sh 06 exec app-a-test ip route
 ```
 
-You should now find entries similar to:
+You should find routes to all five remote lab networks via:
 
 ```text
-default via 10.10.11.1 dev eth0
-10.10.1.0/24 via 10.10.11.2 dev eth0
-10.10.2.0/24 via 10.10.11.2 dev eth0
-10.10.11.0/24 dev eth0 scope link src 10.10.11.10
-10.10.12.0/24 via 10.10.11.2 dev eth0
-10.10.21.0/24 via 10.10.11.2 dev eth0
-10.10.22.0/24 via 10.10.11.2 dev eth0
+10.10.11.2
 ```
-
-The order may vary. The important change is the presence of specific routes to
-the five remote networks.
 
 For example:
 
 ```text
+10.10.1.0/24  via 10.10.11.2
+10.10.2.0/24  via 10.10.11.2
 10.10.12.0/24 via 10.10.11.2
+10.10.21.0/24 via 10.10.11.2
+10.10.22.0/24 via 10.10.11.2
 ```
 
-The endpoint now knows that remote application traffic must first go to the
-router's `app_a` interface.
-
----
-
-## Task 7: Inspect the Overlay's Command
-
-Ask Compose to show the resolved Chapter 06 configuration:
-
-```bash
-bash scripts/compose-stage.sh 06 config
-```
-
-Find the `app-a-test` command. It contains commands similar to:
-
-```yaml
-command:
-  - sh
-  - -c
-  - |
-    set -eu
-    ip route replace 10.10.1.0/24 via 10.10.11.2
-    ip route replace 10.10.2.0/24 via 10.10.11.2
-    ip route replace 10.10.12.0/24 via 10.10.11.2
-    ip route replace 10.10.21.0/24 via 10.10.11.2
-    ip route replace 10.10.22.0/24 via 10.10.11.2
-    sleep infinity
-```
-
-The Compose overlay does not change the network addresses. It changes the
-startup behavior inside the endpoint container.
-
----
-
-# Part 3: Inspect Route Selection
-
-## Task 8: Use `ip route get` for a Remote Destination
-
-Ask Linux how `app-a-test` reaches `app-b-test`:
+Ask Linux which route it selects for `app-b-test`:
 
 ```bash
 bash scripts/compose-stage.sh 06 exec app-a-test \
   ip route get 10.10.12.10
 ```
 
-Expected output:
+Expected:
 
 ```text
 10.10.12.10 via 10.10.11.2 dev eth0 src 10.10.11.10
 ```
 
-The next hop changed from the Docker gateway:
+Now compare a database destination:
 
-```text
-10.10.11.1
+```bash
+bash scripts/compose-stage.sh 06 exec app-a-test \
+  ip route get 10.10.21.10
 ```
 
-to the lab router:
+Expected next hop:
 
 ```text
 10.10.11.2
 ```
 
-This is the main change introduced by Chapter 06.
+The destination subnet changed.
+
+The local router next hop did not.
 
 ---
 
-## Task 9: Compare Local and Remote Destinations
+# Part 11: Test Representative Paths
 
-Ask Linux how it reaches the local router:
+You do not need to ping every possible pair.
+
+Test paths that prove the architecture.
+
+## Public to Application
+
+```bash
+bash scripts/compose-stage.sh 06 exec public-a-test \
+  ping -c 2 10.10.11.10
+```
+
+Expected path:
+
+```text
+public-a-test
+10.10.1.10
+      |
+      | app_a via 10.10.1.2
+      v
+lab-router
+      |
+      | app_a directly connected
+      v
+app-a-test
+10.10.11.10
+```
+
+---
+
+## Application to Database
 
 ```bash
 bash scripts/compose-stage.sh 06 exec app-a-test \
-  ip route get 10.10.11.2
+  ping -c 2 10.10.21.10
 ```
 
-The router address is directly connected, so no remote next hop is needed.
-
-Now ask how it reaches the remote database endpoint:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ip route get 10.10.22.10
-```
-
-Expected output:
+Expected path:
 
 ```text
-10.10.22.10 via 10.10.11.2 dev eth0 src 10.10.11.10
-```
-
-The endpoint does not send directly to `10.10.22.10`. It sends first to the
-router on `app_a`.
-
----
-
-## Task 10: Compare a Remote Route With the Default Route
-
-Ask Linux how it reaches an unrelated address:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ip route get 8.8.8.8
-```
-
-If a default route is present, the result should use:
-
-```text
-10.10.11.1
-```
-
-The specific lab route still wins for `10.10.22.10` because:
-
-```text
-10.10.22.0/24
-```
-
-is more specific than:
-
-```text
-default
-```
-
-This is why the Docker default gateway does not override the static route.
-
----
-
-# Part 4: Confirm Router Forwarding
-
-## Task 11: Inspect `lab-router`
-
-The client route only identifies the first next hop. The router must also have
-the destination network in its own table.
-
-Inspect the router:
-
-```bash
-bash scripts/compose-stage.sh 06 exec lab-router ip route
-```
-
-The router should have connected routes for all six networks:
-
-```text
-10.10.1.0/24 dev ethX scope link src 10.10.1.2
-10.10.2.0/24 dev ethX scope link src 10.10.2.2
-10.10.11.0/24 dev ethX scope link src 10.10.11.2
-10.10.12.0/24 dev ethX scope link src 10.10.12.2
-10.10.21.0/24 dev ethX scope link src 10.10.21.2
-10.10.22.0/24 dev ethX scope link src 10.10.22.2
-```
-
-The interface names and extra route fields may vary.
-
-These are connected routes because the router has an interface in every subnet.
-
-The router does not need a static route for these six networks.
-
----
-
-## Task 12: Confirm IPv4 Forwarding
-
-Run:
-
-```bash
-bash scripts/compose-stage.sh 06 exec lab-router \
-  sysctl net.ipv4.ip_forward
-```
-
-Expected output:
-
-```text
-net.ipv4.ip_forward = 1
-```
-
-The router needs both:
-
-```text
-routes
-       +
-IPv4 forwarding enabled
-```
-
-Without forwarding, the router could communicate with endpoints itself but
-would not move packets between endpoint networks.
-
----
-
-## Task 13: Inspect the Router's Route Decision
-
-Ask the router how it reaches `db-b-test`:
-
-```bash
-bash scripts/compose-stage.sh 06 exec lab-router \
-  ip route get 10.10.22.10
-```
-
-The result should select the router's directly connected `db_b` interface and
-source address `10.10.22.2`:
-
-```text
-10.10.22.10 dev ethX src 10.10.22.2
-```
-
-The complete forward decision is now visible:
-
-```text
-app-a-test route:
-10.10.22.0/24 via 10.10.11.2
-
-lab-router route:
-10.10.22.0/24 is directly connected
+app-a-test
+10.10.11.10
+      |
+      | db_a via 10.10.11.2
+      v
+lab-router
+      |
+      | db_a directly connected
+      v
+db-a-test
+10.10.21.10
 ```
 
 ---
 
-# Part 5: Test the Forward Path
-
-## Task 14: Reach the Router Interface
-
-First test the local router interface:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ping -c 2 10.10.11.2
-```
-
-Expected result:
-
-```text
-2 packets transmitted, 2 packets received, 0% packet loss
-```
-
-This confirms that `app-a-test` can reach its next hop on the local `app_a`
-network.
-
-It does not yet prove that the router can forward traffic to a remote endpoint.
-
----
-
-## Task 15: Reach `app-b-test`
-
-Now test the routed path:
+## Cross-Side Application Path
 
 ```bash
 bash scripts/compose-stage.sh 06 exec app-a-test \
   ping -c 2 10.10.12.10
 ```
 
-Expected result:
-
-```text
-2 packets transmitted, 2 packets received, 0% packet loss
-```
-
-The request path is:
-
-```text
-app-a-test
-10.10.11.10
-        |
-        | next hop 10.10.11.2
-        v
-lab-router
-10.10.11.2 -> 10.10.12.2
-        |
-        | connected app_b network
-        v
-app-b-test
-10.10.12.10
-```
-
-The source and destination addresses remain the endpoint addresses. The router
-forwards the packet; it does not perform NAT in this chapter.
-
 ---
 
-## Task 16: Reach a Database Network
-
-Test a path that crosses from the application zone to the database zone:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ping -c 2 10.10.22.10
-```
-
-The path is:
-
-```text
-app-a-test 10.10.11.10
-        |
-        | via 10.10.11.2
-        v
-lab-router
-        |
-        | connected db_b route
-        v
-db-b-test 10.10.22.10
-```
-
-The route on `app-a-test` is:
-
-```text
-10.10.22.0/24 via 10.10.11.2
-```
-
-The route on the router is automatic because `db_b` is directly attached.
-
----
-
-## Task 17: Test the Public-to-Database Path
-
-Test another source and destination pair:
+## Public to Remote Database
 
 ```bash
 bash scripts/compose-stage.sh 06 exec public-a-test \
   ping -c 2 10.10.22.10
 ```
 
-The source uses the router address on `public_a`:
+This is a useful wider test because the source and destination belong to
+different functional zones and opposite sides of the topology.
+
+At this stage there is no restrictive firewall policy yet, so routed ICMP
+traffic should work once both endpoint route tables are correct.
+
+---
+
+# Part 12: Inspect the Return Path
+
+For the previous test:
 
 ```text
-10.10.22.0/24 via 10.10.1.2
+public-a-test
+10.10.1.10
+
+->
+
+db-b-test
+10.10.22.10
 ```
 
-The router forwards the packet out its `db_b` interface:
+inspect the destination's route back to the source:
+
+```bash
+bash scripts/compose-stage.sh 06 exec db-b-test \
+  ip route get 10.10.1.10
+```
+
+Expected next hop:
 
 ```text
 10.10.22.2
 ```
 
-This test demonstrates that the static routes are installed in every endpoint,
-not only in the application containers.
+So:
+
+```text
+FORWARD
+
+public-a-test
+10.10.1.10
+      |
+      | db_b via 10.10.1.2
+      v
+lab-router
+      |
+      v
+db-b-test
+10.10.22.10
+```
+
+and:
+
+```text
+RETURN
+
+db-b-test
+10.10.22.10
+      |
+      | public_a via 10.10.22.2
+      v
+lab-router
+      |
+      v
+public-a-test
+10.10.1.10
+```
+
+The source and destination use different router IP addresses because they are
+on different local networks.
 
 ---
 
-# Part 6: Confirm the Return Path
+# Part 13: Confirm the Router Makes a Connected-Route Decision
 
-## Task 18: Inspect `app-b-test`
-
-The destination must know how to return traffic to `app-a-test`.
-
-Inspect its route table:
+Ask `lab-router` how it reaches `db-b-test`:
 
 ```bash
-bash scripts/compose-stage.sh 06 exec app-b-test ip route
-```
-
-Find the route:
-
-```text
-10.10.11.0/24 via 10.10.12.2
-```
-
-This route sends the reply to the router's `app_b` interface.
-
----
-
-## Task 19: Ask for the Return Route
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-b-test \
-  ip route get 10.10.11.10
-```
-
-Expected output:
-
-```text
-10.10.11.10 via 10.10.12.2 dev eth0 src 10.10.12.10
-```
-
-The complete exchange is:
-
-```text
-request:
-app-a-test -> 10.10.11.2 -> app-b-test
-
-reply:
-app-b-test -> 10.10.12.2 -> app-a-test
-```
-
-The next-hop addresses differ because each endpoint is attached to a different
-subnet.
-
----
-
-## Task 20: Trace the Path
-
-If `traceroute` is available in the lab image, run:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  traceroute -n -m 3 -w 1 10.10.12.10
-```
-
-Expected sequence:
-
-```text
-1  10.10.11.2
-2  10.10.12.10
-```
-
-The exact formatting may vary.
-
-The important observation is that the router appears as an intermediate hop.
-
-For this one-router topology:
-
-```text
-app-a-test -> lab-router -> app-b-test
-```
-
-The `ping` command proves reachability. `traceroute` makes the Layer-3 path
-visible.
-
----
-
-# Part 7: Understand Route Persistence
-
-## Task 21: Recreate `app-a-test`
-
-Routes are stored in the container network namespace, so recreating a service
-removes its current runtime route table.
-
-Recreate the service with the Chapter 06 overlay:
-
-```bash
-bash scripts/compose-stage.sh 06 up -d --force-recreate app-a-test
-```
-
-Inspect the route again:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
+bash scripts/compose-stage.sh 06 exec lab-router \
   ip route get 10.10.22.10
 ```
 
-The route should still use:
+The result should show that `10.10.22.10` is reached through the router
+interface whose source address is:
+
+```text
+10.10.22.2
+```
+
+There should be no additional next-hop router.
+
+That is the major difference from Chapter 05B.
+
+Chapter 05B:
+
+```text
+router-1
+   |
+   | static route
+   v
+router-2
+```
+
+Chapter 06:
+
+```text
+lab-router
+   |
+   | connected route
+   v
+destination subnet
+```
+
+---
+
+# Part 14: Recreate a Container
+
+Routes added manually disappear when the network namespace disappears.
+
+Chapter 06 should restore its routes when the service starts again.
+
+Inspect first:
+
+```bash
+bash scripts/compose-stage.sh 06 exec app-a-test \
+  ip route get 10.10.21.10
+```
+
+Now recreate only `app-a-test`:
+
+```bash
+bash scripts/compose-stage.sh 06 up -d \
+  --force-recreate app-a-test
+```
+
+Inspect again:
+
+```bash
+bash scripts/compose-stage.sh 06 exec app-a-test \
+  ip route get 10.10.21.10
+```
+
+Expected next hop before and after recreation:
 
 ```text
 10.10.11.2
 ```
 
-Why did it return?
+The original network namespace was destroyed.
 
-Because the service command ran again:
+The route exists again because the Chapter 06 startup command ran in the new
+container.
+
+---
+
+# Part 15: Break It
+
+Delete one specific route from `app-a-test`:
+
+```bash
+bash scripts/compose-stage.sh 06 exec app-a-test \
+  ip route delete 10.10.21.0/24 via 10.10.11.2
+```
+
+Now inspect:
+
+```bash
+bash scripts/compose-stage.sh 06 exec app-a-test \
+  ip route get 10.10.21.10
+```
+
+The selected route should no longer use:
 
 ```text
-container created
-        |
-        v
-route setup command executed
-        |
-        v
-sleep infinity
+10.10.11.2
 ```
 
-This is a simple form of runtime configuration persistence.
+It may fall back to Docker's default route.
+
+Now test:
+
+```bash
+bash scripts/compose-stage.sh 06 exec app-a-test \
+  ping -c 2 10.10.21.10
+```
+
+The intended lab path should fail.
 
 ---
 
-## Task 22: Understand `replace`
+# Part 16: Diagnose Before Fixing
 
-Run the same route replacement manually:
+Do not immediately recreate the container.
 
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ip route replace 10.10.22.0/24 via 10.10.11.2
-```
-
-Inspect the matching route:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ip route get 10.10.22.10
-```
-
-It should still identify the same next hop.
-
-`replace` does not create duplicate equivalent routes. It ensures that the
-desired route is present with the desired next hop.
-
----
-
-# Part 8: Break the Forward Path
-
-## Task 23: Delete the Forward Route
-
-Delete the route from `app-a-test` to `app-b-test`:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ip route delete 10.10.12.0/24 via 10.10.11.2
-```
-
-Confirm the specific route is gone:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ip route get 10.10.12.10
-```
-
-Linux should now select the default Docker gateway instead of the lab router:
+First ask:
 
 ```text
-10.10.12.10 via 10.10.11.1 dev eth0 src 10.10.11.10
+Where is the first incorrect routing decision?
 ```
 
-Test again:
+Inspect the source:
 
 ```bash
 bash scripts/compose-stage.sh 06 exec app-a-test \
-  ping -c 2 10.10.12.10
+  ip route get 10.10.21.10
 ```
 
-The routed path should fail.
+Inspect the router:
 
-The router is still running and forwarding. The failure occurs before the
-packet reaches the intended lab-router interface because the source selected
-the wrong next hop.
+```bash
+bash scripts/compose-stage.sh 06 exec lab-router \
+  ip route get 10.10.21.10
+```
+
+The router should still know the destination because `db_a` is directly
+connected.
+
+So:
+
+```text
+source route broken
+router route correct
+```
+
+The first broken layer is:
+
+```text
+app-a-test route table
+```
+
+This is the same debugging rule from Chapter 05B:
+
+```text
+follow the packet one routing decision at a time
+```
 
 ---
 
-## Task 24: Restore the Forward Route
+# Part 17: Recover
 
-Recreate `app-a-test` so the startup command reapplies the route:
+Recreate `app-a-test`:
 
 ```bash
-bash scripts/compose-stage.sh 06 up -d --force-recreate app-a-test
+bash scripts/compose-stage.sh 06 up -d \
+  --force-recreate app-a-test
 ```
 
 Confirm:
 
 ```bash
 bash scripts/compose-stage.sh 06 exec app-a-test \
-  ip route get 10.10.12.10
+  ip route get 10.10.21.10
 ```
 
 Expected:
 
 ```text
-10.10.12.10 via 10.10.11.2 dev eth0 src 10.10.11.10
+via 10.10.11.2
 ```
 
 Retest:
 
 ```bash
 bash scripts/compose-stage.sh 06 exec app-a-test \
-  ping -c 2 10.10.12.10
+  ping -c 2 10.10.21.10
+```
+
+The route should work again.
+
+---
+
+# Key Mental Model
+
+For every endpoint:
+
+```text
+destination on my subnet?
+        |
+     yes|no
+        |
+        +-------------------+
+        |                   |
+        v                   v
+send directly      choose static route
+                            |
+                            v
+                   local lab-router .2
+```
+
+For the router:
+
+```text
+packet arrives
+      |
+      v
+route lookup
+      |
+      v
+destination lab subnet
+is directly connected
+      |
+      v
+forward out matching interface
+```
+
+The complete model is:
+
+```text
+source endpoint
+      |
+      | static route
+      v
+local router .2
+      |
+      | connected route
+      v
+destination endpoint
+```
+
+For the reply:
+
+```text
+destination endpoint
+      |
+      | static return route
+      v
+its local router .2
+      |
+      | connected route
+      v
+original source
 ```
 
 ---
 
-# Part 9: Break the Return Path
+# Review Checkpoint
 
-## Task 25: Delete the Destination's Return Route
+Answer these before moving to Chapter 07.
 
-Delete the route from `app-b-test` back to `app-a-test`:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-b-test \
-  ip route delete 10.10.11.0/24 via 10.10.12.2
-```
-
-Confirm the route decision changed:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-b-test \
-  ip route get 10.10.11.10
-```
-
-It should now use the Docker default gateway:
-
-```text
-10.10.11.10 via 10.10.12.1 dev eth0 src 10.10.12.10
-```
-
-Test from the source again:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ping -c 2 10.10.12.10
-```
-
-The request may reach `app-b-test`, but the reply cannot use the correct route
-back through the lab router.
-
-This is the key observation:
-
-```text
-forward route present
-        !=
-complete connection
-```
+1. Why does `lab-router` not need static routes for the six original lab
+   networks?
+2. Why does `app-a-test` use `10.10.11.2` instead of `10.10.12.2` when
+   reaching `app-b-test`?
+3. What is the difference between Docker's `.1` gateway and the lab router's
+   `.2` address?
+4. What does `ip route get` prove?
+5. What does it not prove?
+6. Why can a correct forward route still result in a failed `ping`?
+7. Why does every endpoint use a different `.2` next-hop address?
+8. Why is `ip route replace` better than `ip route add` for startup
+   configuration?
+9. Does `ip route replace` itself make the route persistent?
+10. What causes the route to return after container recreation?
+11. Does Chapter 06 create six new endpoint services?
+12. How does the Chapter 06 Compose file modify the existing services?
 
 ---
 
-## Task 26: Restore the Return Route
+# Chapter Recap
 
-Recreate `app-b-test`:
-
-```bash
-bash scripts/compose-stage.sh 06 up -d --force-recreate app-b-test
-```
-
-Confirm the return route:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-b-test \
-  ip route get 10.10.11.10
-```
-
-Expected:
+Chapter 05 created the forwarding device:
 
 ```text
-10.10.11.10 via 10.10.12.2 dev eth0 src 10.10.12.10
+lab-router
++
+six interfaces
++
+six connected routes
++
+ip_forward = 1
 ```
 
-Retest the connection:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ping -c 2 10.10.12.10
-```
-
-The route setup command restores the complete path.
-
----
-
-## Important Observation
-
-A successful ping requires all of these decisions to be correct:
+Chapter 05B taught the routing model:
 
 ```text
-source route
-        +
-reachable local next hop
-        +
-router connected destination route
-        +
-router IPv4 forwarding
-        +
-destination return route
-        =
-successful exchange
+remote destination
+      |
+      v
+choose a directly reachable next hop
+      |
+      v
+repeat at every router
 ```
 
-The first failure in this chain determines where troubleshooting should begin.
+Chapter 06 applied that model to the real lab architecture.
 
-Use `ip route get` at each node instead of guessing:
-
-```bash
-bash scripts/compose-stage.sh 06 exec app-a-test \
-  ip route get 10.10.12.10
-
-bash scripts/compose-stage.sh 06 exec lab-router \
-  ip route get 10.10.12.10
-
-bash scripts/compose-stage.sh 06 exec app-b-test \
-  ip route get 10.10.11.10
-```
-
-These three commands show:
+Each endpoint learned:
 
 ```text
-source next hop
-router destination decision
-destination return next hop
+all remote lab subnets
+        |
+        v
+lab-router's .2 address
+on my own local subnet
 ```
 
----
+The router did not need extra static routes because all six destination
+networks were directly connected.
 
-## Expected Observation
-
-Before Chapter 06, `app-a-test` selected:
-
-```text
-10.10.12.10 via 10.10.11.1
-```
-
-After Chapter 06, it selects:
-
-```text
-10.10.12.10 via 10.10.11.2
-```
-
-The packet path is:
+We first built one path manually:
 
 ```text
 app-a-test
-10.10.11.10
-        |
-        | 10.10.12.0/24 via 10.10.11.2
-        v
+      |
+      v
 lab-router
-10.10.11.2
-        |
-        | connected route to 10.10.12.0/24
-        v
+      |
+      v
 app-b-test
-10.10.12.10
 ```
 
-The return path is:
+Then we built the return path:
 
 ```text
 app-b-test
-10.10.12.10
-        |
-        | 10.10.11.0/24 via 10.10.12.2
-        v
+      |
+      v
 lab-router
-10.10.12.2
-        |
-        | connected route to 10.10.11.0/24
-        v
+      |
+      v
 app-a-test
-10.10.11.10
 ```
 
-The router is the forwarding device, but each endpoint still needs a route
-pointing to the correct router interface.
+From that we derived the general rule for all six endpoints.
 
----
+Finally, the Chapter 06 Compose overlay automated the already-understood
+configuration with:
 
-## Key Mental Model
-
-```text
-connected route
-= Linux knows the network because an interface is attached to it
+```bash
+ip route replace ...
 ```
 
-```text
-static route
-= an explicit destination and next-hop relationship
-```
+The important distinction is:
 
 ```text
-next hop
-= the directly reachable device that receives the packet next
-```
+manual routing
+=
+learn why the path works
 
-```text
-default route
-= fallback route used when no more-specific route matches
-```
-
-```text
-forward path
-= source to destination route decisions
-```
-
-```text
-return path
-= destination to source route decisions
-```
-
-For `app-a-test` reaching `app-b-test`:
-
-```text
-destination 10.10.12.10
-        |
-        v
-match 10.10.12.0/24
-        |
-        v
-next hop 10.10.11.2
-        |
-        v
-lab-router forwards
-        |
-        v
-app-b-test replies via 10.10.12.2
-```
-
-And most importantly:
-
-```text
-router exists
-        !=
-client has a route to the router
-```
-
-```text
-forward route
-        +
-return route
-        =
-working exchange
+startup routing
+=
+reapply the known-good path consistently
 ```
 
 ---
 
-## Review Checkpoint
+# Next Chapter
 
-Answer these questions without looking at the final route table:
+Routing answers:
 
-1. Why is `10.10.11.2` a valid next hop for `app-a-test`?
-2. Why is `10.10.12.2` not the first next hop from `app-a-test`?
-3. Why does the specific `/24` route win over the Docker default route?
-4. What route does `app-b-test` need to reply to `app-a-test`?
-5. Why can the router use connected routes without static routes for the six lab networks?
-6. What does `ip route get` show?
-7. Why can a packet reach the destination while the connection still fails?
-8. What happens to runtime routes when a container is recreated?
-9. Why does the Compose command use `ip route replace` instead of only `ip route add`?
-10. Which node should you inspect first when a remote ping fails?
+```text
+WHERE should the packet go?
+```
+
+So far, we have mostly inferred the packet path from:
+
+```text
+ip route
+ip route get
+ping
+```
+
+Chapter 07 adds packet capture with `tcpdump`.
+
+The next question becomes:
+
+```text
+Can we actually observe the packet
+entering and leaving lab-router?
+```
+
+The progression is:
+
+```text
+Chapter 06
+route selection + end-to-end reachability
+        |
+        v
+Chapter 07
+packet-level evidence
+at router ingress and egress
+```
 
 ---
 
-## Clean Up
+# Clean Up
 
-Remove the resources created for the standard cumulative lab:
+When finished:
 
 ```bash
 bash scripts/compose-stage.sh 06 down
